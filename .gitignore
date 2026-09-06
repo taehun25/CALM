@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.cache/
+build/
+install/
+log/
+results/
+*.csv
+*.log
+*.bag
+*.db3
+*.mcap
+*.pdf
+document/backup/
+document/Fast-DDS-*/
+document/cyclonedds-*/

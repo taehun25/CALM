@@ -1,0 +1,1480 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="ROS 2 DDS 재전송 제어 알고리즘 CALM의 설계 배경, 현재 구현, 실험 결과와 향후 과제">
+  <title>CALM 알고리즘 진행 보고서</title>
+  <style>
+    :root {
+      --ink: #18211d;
+      --muted: #5b6862;
+      --paper: #f5f7f4;
+      --surface: #ffffff;
+      --line: #d9dfda;
+      --green: #147d64;
+      --green-soft: #e5f3ee;
+      --blue: #2767a6;
+      --blue-soft: #e8f1fa;
+      --amber: #b66a08;
+      --amber-soft: #fff1d9;
+      --red: #b73a35;
+      --red-soft: #fbe9e7;
+      --violet: #6755a5;
+      --violet-soft: #efecfa;
+      --shadow: 0 10px 30px rgba(23, 42, 33, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+      line-height: 1.65;
+      letter-spacing: 0;
+    }
+
+    a { color: inherit; }
+
+    button, a { -webkit-tap-highlight-color: transparent; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(12px);
+    }
+
+    .topbar-inner {
+      width: min(1180px, calc(100% - 32px));
+      height: 58px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .brand {
+      flex: 0 0 auto;
+      font-weight: 800;
+      color: var(--green);
+    }
+
+    .nav {
+      min-width: 0;
+      display: flex;
+      gap: 18px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      white-space: nowrap;
+    }
+
+    .nav::-webkit-scrollbar { display: none; }
+
+    .nav a {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .nav a:hover, .nav a:focus-visible { color: var(--green); }
+
+    main {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding-bottom: 88px;
+    }
+
+    .hero {
+      min-height: 440px;
+      padding: 72px 0 52px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(290px, 0.8fr);
+      gap: 56px;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3, p { overflow-wrap: anywhere; }
+
+    h1 {
+      max-width: 820px;
+      margin: 0;
+      font-size: 46px;
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
+
+    .hero-copy {
+      max-width: 800px;
+      margin: 22px 0 0;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .hero-meta {
+      margin-top: 28px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 4px 10px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .progress-panel {
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .progress-ring {
+      position: relative;
+      width: 178px;
+      height: 178px;
+      margin: 0 auto 22px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: conic-gradient(var(--green) 0 85%, #e4e9e5 85% 100%);
+    }
+
+    .progress-ring::after {
+      content: "";
+      position: absolute;
+      inset: 15px;
+      border-radius: 50%;
+      background: var(--surface);
+    }
+
+    .progress-number {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      font-size: 40px;
+      font-weight: 850;
+      line-height: 1;
+    }
+
+    .progress-number small {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .progress-panel h2 {
+      margin: 0;
+      font-size: 18px;
+      text-align: center;
+    }
+
+    .progress-panel p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    section {
+      padding: 70px 0;
+      border-bottom: 1px solid var(--line);
+      scroll-margin-top: 70px;
+    }
+
+    .section-head {
+      max-width: 780px;
+      margin-bottom: 34px;
+    }
+
+    .section-index {
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    h2 {
+      margin: 6px 0 0;
+      font-size: 31px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .section-head p {
+      margin: 14px 0 0;
+      color: var(--muted);
+    }
+
+    h3 {
+      margin: 0 0 14px;
+      font-size: 19px;
+      line-height: 1.35;
+      letter-spacing: 0;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .panel {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .panel p { margin: 0; color: var(--muted); }
+
+    .callout {
+      padding: 20px 22px;
+      border-left: 4px solid var(--green);
+      background: var(--green-soft);
+    }
+
+    .callout strong { color: #0f614e; }
+
+    .callout.warning {
+      border-left-color: var(--amber);
+      background: var(--amber-soft);
+    }
+
+    .callout.warning strong { color: #8a4e05; }
+
+    .sequence-wrap {
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      overflow-x: auto;
+    }
+
+    .sequence {
+      position: relative;
+      min-width: 760px;
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) 190px minmax(240px, 1fr);
+      row-gap: 13px;
+      align-items: center;
+    }
+
+    .lane-title {
+      padding: 12px;
+      border-bottom: 3px solid var(--ink);
+      font-size: 15px;
+      font-weight: 850;
+      text-align: center;
+    }
+
+    .time-title {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .event {
+      position: relative;
+      min-height: 54px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fafbf9;
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .event.pub { border-left: 4px solid var(--blue); }
+    .event.sub { border-right: 4px solid var(--green); }
+    .event.loss { border-color: #e4a09d; background: var(--red-soft); }
+    .event.repair { border-color: #d6b171; background: var(--amber-soft); }
+    .event.ok { border-color: #93c7b7; background: var(--green-soft); }
+    .event.empty { visibility: hidden; }
+
+    .wire {
+      position: relative;
+      height: 40px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      text-align: center;
+    }
+
+    .wire::before {
+      content: "";
+      position: absolute;
+      top: 23px;
+      left: 10px;
+      right: 10px;
+      height: 2px;
+      background: currentColor;
+    }
+
+    .wire.right::after,
+    .wire.left::after {
+      content: "";
+      position: absolute;
+      top: 18px;
+      width: 0;
+      height: 0;
+      border-top: 6px solid transparent;
+      border-bottom: 6px solid transparent;
+    }
+
+    .wire.right::after {
+      right: 6px;
+      border-left: 9px solid currentColor;
+    }
+
+    .wire.left::after {
+      left: 6px;
+      border-right: 9px solid currentColor;
+    }
+
+    .wire.failed { color: var(--red); }
+    .wire.failed::before { background: repeating-linear-gradient(90deg, var(--red) 0 7px, transparent 7px 12px); }
+
+    .time-marker {
+      grid-column: 2;
+      padding: 2px 0;
+      color: var(--muted);
+      font-size: 11px;
+      text-align: center;
+    }
+
+    .time-marker::before {
+      content: "↓ ";
+      color: var(--ink);
+      font-weight: 850;
+    }
+
+    .state-table, .result-table, .parameter-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      font-size: 13px;
+    }
+
+    .state-table th, .state-table td,
+    .result-table th, .result-table td,
+    .parameter-table th, .parameter-table td {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .state-table th, .result-table th, .parameter-table th {
+      color: var(--muted);
+      background: #f0f3f0;
+      font-size: 12px;
+    }
+
+    .state-name {
+      color: var(--blue);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-weight: 800;
+    }
+
+    .storm-loop {
+      margin-top: 24px;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    .loop-step {
+      position: relative;
+      min-height: 100px;
+      padding: 16px 12px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #e0aaa7;
+      border-radius: 6px;
+      background: var(--red-soft);
+      color: #852d29;
+      font-size: 13px;
+      font-weight: 750;
+      text-align: center;
+    }
+
+    .loop-step:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      right: -19px;
+      z-index: 2;
+      color: var(--red);
+      font-size: 20px;
+    }
+
+    .loop-feedback {
+      grid-column: 2 / 6;
+      padding: 7px 10px;
+      border-top: 2px dashed var(--red);
+      color: var(--red);
+      font-size: 12px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .opt-strip {
+      display: grid;
+      grid-template-columns: 140px 1fr 1fr;
+      gap: 1px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--line);
+    }
+
+    .opt-label, .opt-item {
+      padding: 20px;
+      background: var(--surface);
+    }
+
+    .opt-label {
+      display: grid;
+      place-items: center;
+      color: var(--violet);
+      font-size: 13px;
+      font-weight: 850;
+      text-align: center;
+    }
+
+    .opt-item strong { display: block; margin-bottom: 5px; }
+    .opt-item p { margin: 0; color: var(--muted); font-size: 13px; }
+
+    .control-loop {
+      padding: 26px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .control-flow {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr) 44px minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+    }
+
+    .control-block {
+      min-height: 205px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fafbf9;
+    }
+
+    .control-block.sensor { border-top: 4px solid var(--blue); }
+    .control-block.controller { border-top: 4px solid var(--green); }
+    .control-block.plant { border-top: 4px solid var(--amber); }
+
+    .block-type {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .control-block h3 { margin-top: 5px; }
+
+    .control-block ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .flow-arrow {
+      color: var(--green);
+      font-size: 28px;
+      font-weight: 850;
+      text-align: center;
+    }
+
+    .feedback {
+      margin: 18px 8% 0;
+      padding: 10px 18px;
+      border: 2px solid var(--green);
+      border-top: 0;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .formula {
+      margin: 20px 0;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #111b17;
+      color: #e9f6f0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 14px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+    }
+
+    .signal-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    .signal {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+    }
+
+    .signal .symbol {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--green);
+      font-family: Georgia, serif;
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .signal p { margin: 0; color: var(--muted); font-size: 13px; }
+
+    .policy-ladder {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 22px;
+    }
+
+    .policy {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+    }
+
+    .policy.f0 { border-top: 4px solid var(--blue); }
+    .policy.f1 { border-top: 4px solid var(--amber); }
+    .policy.f2 { border-top: 4px solid var(--red); }
+
+    .policy strong { display: block; margin-bottom: 8px; }
+    .policy code { color: var(--muted); font-size: 12px; }
+
+    .metric-summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .metric {
+      min-height: 128px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+    }
+
+    .metric .value {
+      display: block;
+      color: var(--green);
+      font-size: 28px;
+      font-weight: 850;
+      line-height: 1.2;
+    }
+
+    .metric .label {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .comparison-chart {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .bar-group { margin-top: 20px; }
+    .bar-group:first-child { margin-top: 0; }
+    .bar-title { margin-bottom: 8px; font-size: 13px; font-weight: 800; }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 86px 1fr 95px;
+      gap: 10px;
+      align-items: center;
+      margin: 7px 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .bar-track {
+      height: 15px;
+      border-radius: 3px;
+      background: #edf0ed;
+      overflow: hidden;
+    }
+
+    .bar-fill { height: 100%; min-width: 3px; border-radius: 3px; }
+    .bar-fill.default { background: var(--red); }
+    .bar-fill.calm { background: var(--green); }
+
+    .good { color: var(--green); font-weight: 850; }
+    .bad { color: var(--red); font-weight: 850; }
+    .pending { color: var(--amber); font-weight: 850; }
+
+    .maturity-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px 28px;
+    }
+
+    .maturity-row {
+      display: grid;
+      grid-template-columns: 1fr 48px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .maturity-row strong { font-size: 13px; }
+    .maturity-row span { color: var(--muted); font-size: 12px; text-align: right; }
+
+    .maturity-track {
+      grid-column: 1 / 3;
+      height: 8px;
+      border-radius: 3px;
+      background: #e5eae6;
+      overflow: hidden;
+    }
+
+    .maturity-fill { height: 100%; background: var(--green); }
+    .maturity-fill.mid { background: var(--amber); }
+    .maturity-fill.low { background: var(--red); }
+
+    .expectation-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .expectation {
+      padding: 22px;
+      border-top: 4px solid var(--green);
+      background: var(--surface);
+    }
+
+    .expectation:nth-child(2) { border-top-color: var(--blue); }
+    .expectation:nth-child(3) { border-top-color: var(--amber); }
+    .expectation:nth-child(4) { border-top-color: var(--violet); }
+    .expectation:nth-child(5) { border-top-color: var(--red); }
+    .expectation:nth-child(6) { border-top-color: #477b37; }
+    .expectation p { margin: 0; color: var(--muted); font-size: 13px; }
+
+    .roadmap {
+      position: relative;
+      padding-left: 30px;
+    }
+
+    .roadmap::before {
+      content: "";
+      position: absolute;
+      top: 6px;
+      bottom: 6px;
+      left: 9px;
+      width: 2px;
+      background: var(--line);
+    }
+
+    .roadmap-item {
+      position: relative;
+      margin-bottom: 22px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+    }
+
+    .roadmap-item::before {
+      content: "";
+      position: absolute;
+      top: 25px;
+      left: -28px;
+      width: 12px;
+      height: 12px;
+      border: 3px solid var(--paper);
+      border-radius: 50%;
+      background: var(--amber);
+    }
+
+    .priority {
+      display: inline-block;
+      margin-bottom: 7px;
+      color: var(--amber);
+      font-size: 11px;
+      font-weight: 850;
+    }
+
+    .roadmap-item p { margin: 0; color: var(--muted); font-size: 13px; }
+
+    .footer {
+      padding-top: 26px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 920px) {
+      .hero { grid-template-columns: 1fr; gap: 32px; }
+      .progress-panel { max-width: 520px; }
+      .grid-3, .metric-summary, .expectation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .control-flow { grid-template-columns: 1fr; }
+      .flow-arrow { transform: rotate(90deg); }
+      .feedback { margin: 18px 0 0; border-top: 2px solid var(--green); }
+      .storm-loop { grid-template-columns: 1fr; }
+      .loop-step:not(:last-child)::after { content: "↓"; right: 50%; bottom: -23px; top: auto; }
+      .loop-feedback { grid-column: 1; }
+      .opt-strip { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      .topbar-inner, main { width: min(100% - 22px, 1180px); }
+      .topbar-inner { gap: 14px; }
+      .brand { font-size: 14px; }
+      .nav { gap: 14px; }
+      .hero { min-height: auto; padding-top: 48px; }
+      h1 { font-size: 36px; }
+      h2 { font-size: 26px; }
+      section { padding: 54px 0; }
+      .grid-2, .grid-3, .metric-summary, .maturity-list, .expectation-grid,
+      .signal-grid, .policy-ladder { grid-template-columns: 1fr; }
+      .bar-row { grid-template-columns: 70px 1fr 74px; }
+      .progress-panel { padding: 22px; }
+    }
+
+    @media print {
+      body { background: white; }
+      .topbar { display: none; }
+      main { width: 100%; padding: 0 18px; }
+      section, .hero { break-inside: avoid; }
+      .panel, .progress-panel, .sequence-wrap, .control-loop, .comparison-chart { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">CALM / Progress</div>
+      <nav class="nav" aria-label="문서 목차">
+        <a href="#overview">완성도</a>
+        <a href="#background">설계 배경</a>
+        <a href="#reliable">Reliable 흐름</a>
+        <a href="#calm">CALM 동작</a>
+        <a href="#results">실험 결과</a>
+        <a href="#impact">기대효과</a>
+        <a href="#roadmap">향후 과제</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="hero" id="overview">
+      <div>
+        <p class="eyebrow">Cytokine-inspired Adaptive Link Management</p>
+        <h1>CALM 알고리즘<br>설계·구현 진행 보고서</h1>
+        <p class="hero-copy">
+          ROS 2 DDS Reliable QoS의 재전송 양성 피드백을 Writer 내부의 Reader별 관측값으로 감지하고,
+          재전송·새 전송의 총 release budget과 pacing rate를 조절해 완전 신뢰성을 유지하면서
+          tail delay와 재전송 폭풍을 억제하는 연구용 미들웨어 제어기다.
+        </p>
+        <div class="hero-meta">
+          <span class="tag">Fast DDS 2.6.11</span>
+          <span class="tag">CycloneDDS 0.10.5</span>
+          <span class="tag">OPT 1 + OPT 2</span>
+          <span class="tag">Reader별 폐루프 제어</span>
+          <span class="tag">업데이트 2026-08-17</span>
+        </div>
+      </div>
+
+      <aside class="progress-panel" aria-label="구현 완성도">
+        <div class="progress-ring">
+          <div class="progress-number">85%<small>연구 알고리즘 전체 기준</small></div>
+        </div>
+        <h2>핵심 시제품 구현 완료</h2>
+        <p>
+          Fast DDS와 CycloneDDS에 Reader별 관측·budget·동적 rate·pacing이 구현됐다.
+          실제 무선 반복 검증, 다중 Reader 안정성, 두 DDS의 F 정책 통일은 아직 남아 있다.
+        </p>
+      </aside>
+    </div>
+
+    <section aria-labelledby="maturity-title">
+      <div class="section-head">
+        <span class="section-index">00 / MATURITY</span>
+        <h2 id="maturity-title">85%를 산정한 기준</h2>
+        <p>코드 존재 여부만 세지 않고 두 DDS의 핵심 구현, 재현 가능한 A/B, 실제 무선 검증 수준을 가중해 산정했다.</p>
+      </div>
+      <div class="panel">
+        <div class="maturity-list">
+          <div class="maturity-row">
+            <strong>문제 정의와 제어 목표</strong><span>95%</span>
+            <div class="maturity-track"><div class="maturity-fill" style="width:95%"></div></div>
+          </div>
+          <div class="maturity-row">
+            <strong>Fast DDS 관측·CSV 계측</strong><span>95%</span>
+            <div class="maturity-track"><div class="maturity-fill" style="width:95%"></div></div>
+          </div>
+          <div class="maturity-row">
+            <strong>Fast DDS 제어·pacing 구현</strong><span>94%</span>
+            <div class="maturity-track"><div class="maturity-fill" style="width:94%"></div></div>
+          </div>
+          <div class="maturity-row">
+            <strong>Loopback A/B 검증</strong><span>92%</span>
+            <div class="maturity-track"><div class="maturity-fill" style="width:92%"></div></div>
+          </div>
+          <div class="maturity-row">
+            <strong>실제 무선 재현성과 최적화</strong><span>38%</span>
+            <div class="maturity-track"><div class="maturity-fill mid" style="width:38%"></div></div>
+          </div>
+          <div class="maturity-row">
+            <strong>CycloneDDS 관측·제어 이식</strong><span>80%</span>
+            <div class="maturity-track"><div class="maturity-fill mid" style="width:80%"></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="callout warning" style="margin-top:18px">
+        <strong>해석:</strong> 현재 상태는 “두 Tier-1 오픈소스 DDS에서 논문 실험을 진행할 수 있는 연구 시제품”이다.
+        다만 Fast의 안정 프로파일과 Cyclone의 최신 F 판정이 아직 완전히 같지 않고, 실제 무선 반복 검증 전에는 완성 알고리즘으로 부르지 않는다.
+      </div>
+    </section>
+
+    <section id="background" aria-labelledby="background-title">
+      <div class="section-head">
+        <span class="section-index">01 / BACKGROUND</span>
+        <h2 id="background-title">왜 CALM이 필요한가</h2>
+        <p>
+          Reliable QoS는 손실 데이터를 복구하지만, 혼잡한 링크에서는 복구 트래픽 자체가 다음 손실을 만드는
+          양성 피드백이 될 수 있다. CALM은 “재전송이 증가하는 신호 자체를 브레이크로 사용한다”는
+          사이토카인 폭풍 억제 아이디어에서 출발했다.
+        </p>
+      </div>
+
+      <div class="grid-3">
+        <article class="panel">
+          <h3>정상 복구</h3>
+          <p>HEARTBEAT로 누락을 발견하고 ACKNACK/NACKFRAG가 요청한 Change 또는 fragment를 다시 보내 ACK 진행을 회복한다.</p>
+        </article>
+        <article class="panel">
+          <h3>혼잡 시 문제</h3>
+          <p>T<sub>NR</sub> 만료 시 많은 REQUESTED 데이터를 한 번에 release하면 UDP·qdisc·무선 채널에 burst가 몰린다.</p>
+        </article>
+        <article class="panel">
+          <h3>CALM의 질문</h3>
+          <p>링크 용량을 사전에 알지 못해도 DDS Writer가 이미 가진 피드백만으로 burst를 스스로 줄일 수 있는가?</p>
+        </article>
+      </div>
+
+      <div class="storm-loop" aria-label="재전송 폭풍의 양성 피드백">
+        <div class="loop-step">일시적 손실·단절·과도한 부하</div>
+        <div class="loop-step">NACK 및 미복구 repair 증가</div>
+        <div class="loop-step">큰 재전송 burst release</div>
+        <div class="loop-step">큐·채널 혼잡과 추가 손실</div>
+        <div class="loop-step">ACK 정체·지연·반복 NACK</div>
+        <div class="loop-feedback">더 많은 재전송 요구로 되돌아가는 양성 피드백</div>
+      </div>
+    </section>
+
+    <section id="reliable" aria-labelledby="reliable-title">
+      <div class="section-head">
+        <span class="section-index">02 / RELIABLE QOS</span>
+        <h2 id="reliable-title">기본 DDS Reliable 재전송 흐름</h2>
+        <p>아래쪽으로 갈수록 시간이 흐른다. 상태는 Writer가 각 Reader를 위해 유지하는 `ChangeForReader` 관점이다.</p>
+      </div>
+
+      <div class="sequence-wrap">
+        <div class="sequence">
+          <div class="lane-title">Publisher / StatefulWriter</div>
+          <div class="time-title">RTPS / Network</div>
+          <div class="lane-title">Subscriber / StatefulReader</div>
+
+          <div class="event pub"><b>UNSENT</b><br>SN 100 Change 생성</div>
+          <div class="wire right">DATA 또는 DATA_FRAG</div>
+          <div class="event sub">수신 준비</div>
+
+          <div class="event pub"><b>UNDERWAY</b><br>전송 경로에 등록</div>
+          <div class="wire right failed">DATA SN 100 손실 ×</div>
+          <div class="event sub loss">SN 100 미수신</div>
+
+          <div class="time-marker">NACK suppression 구간 T<sub>NS</sub></div>
+          <div class="event pub"><b>UNACKNOWLEDGED</b><br>전송했지만 확인 없음</div>
+          <div class="wire right">HEARTBEAT</div>
+          <div class="event sub repair">누락 sequence / fragment 감지</div>
+
+          <div class="event pub empty">빈 칸</div>
+          <div class="wire left">ACKNACK / NACKFRAG</div>
+          <div class="event sub repair">T<sub>HR</sub> 후 복구 요청 전송</div>
+
+          <div class="event pub repair"><b>REQUESTED</b><br>Reader가 복구를 요청함</div>
+          <div class="time-marker">NACK response delay T<sub>NR</sub></div>
+          <div class="event sub">재전송 대기</div>
+
+          <div class="event pub repair"><b>UNSENT</b><br>T<sub>NR</sub> 만료 후 repair release</div>
+          <div class="wire right">DATA_FRAG 재전송</div>
+          <div class="event sub ok">SN 100 복구 수신</div>
+
+          <div class="event pub"><b>UNDERWAY → UNACKNOWLEDGED</b></div>
+          <div class="wire left">ACKNACK base &gt; 100</div>
+          <div class="event sub ok">연속 수신 구간 전진</div>
+
+          <div class="event pub ok"><b>ACKNOWLEDGED</b><br>Reader별 복구 완료</div>
+          <div class="wire right">다음 Change 진행</div>
+          <div class="event sub ok">신뢰 전달 완료</div>
+        </div>
+      </div>
+
+      <div style="margin-top:30px; overflow-x:auto">
+        <table class="state-table">
+          <thead>
+            <tr><th>상태</th><th>Writer 관점의 의미</th><th>다음 전이</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="state-name">UNSENT</td><td>아직 해당 Reader의 전송 경로로 release되지 않았거나, 재전송을 위해 다시 전송 대기가 된 Change.</td><td>전송 선택 시 `UNDERWAY`</td></tr>
+            <tr><td class="state-name">UNDERWAY</td><td>전송 대상으로 등록되어 FlowQueue/transport 경로에서 처리 중인 Change. 수신 성공이 확인된 상태는 아니다.</td><td>T<sub>NS</sub> 후 `UNACKNOWLEDGED`</td></tr>
+            <tr><td class="state-name">UNACKNOWLEDGED</td><td>한 번 보냈지만 Reader의 누적 ACK로 확인되지 않은 Change.</td><td>ACK면 `ACKNOWLEDGED`, NACK이면 `REQUESTED`</td></tr>
+            <tr><td class="state-name">REQUESTED</td><td>ACKNACK/NACKFRAG가 명시적으로 복구를 요청한 Change 또는 fragment.</td><td>T<sub>NR</sub> 만료 후 `UNSENT`</td></tr>
+            <tr><td class="state-name">ACKNOWLEDGED</td><td>Reader의 ACK base 진행으로 해당 Change의 수신이 확인된 상태.</td><td>ReaderProxy/WHC 정리 가능</td></tr>
+            <tr><td class="state-name">unsent_fragments</td><td>하나의 대용량 Change 안에서 아직 보내거나 다시 보내야 할 fragment 집합.</td><td>fragment 단위 pacing 및 재전송</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section aria-labelledby="opt-title">
+      <div class="section-head">
+        <span class="section-index">03 / WIRELESS BASELINE</span>
+        <h2 id="opt-title">CALM 전에 적용한 OPT 1·2</h2>
+        <p>
+          대용량 무선 전송의 IP fragmentation과 느린 손실 피드백을 줄이기 위해 선행 논문의 두 설정을 사용한다.
+          이들은 CALM의 독창적 기여가 아니라, CALM 제어를 평가하기 위한 공통 전송 기반이다.
+        </p>
+      </div>
+
+      <div class="opt-strip">
+        <div class="opt-label">Paper-derived<br>baseline</div>
+        <div class="opt-item">
+          <strong>OPT 1 · RTPS maxMessageSize = 1472 B</strong>
+          <p>RTPS 메시지를 MTU-safe 크기로 제한해 IP 계층의 추가 fragmentation과 한 IP fragment 손실에 따른 전체 datagram 폐기를 줄인다.</p>
+        </div>
+        <div class="opt-item">
+          <strong>OPT 2 · HEARTBEAT period = publish period / 2</strong>
+          <p>대용량 데이터의 누락 발견과 ACKNACK/NACKFRAG 피드백을 앞당긴다. piggyback HEARTBEAT는 기존대로 유지한다.</p>
+        </div>
+      </div>
+      <p style="margin:12px 0 0; color:var(--muted); font-size:12px">
+        참고 문서: <a href="Optimizing ROS 2 Communication for Wireless Robotic Systems.pdf">Optimizing ROS 2 Communication for Wireless Robotic Systems.pdf</a>
+      </p>
+    </section>
+
+    <section id="calm" aria-labelledby="calm-title">
+      <div class="section-head">
+        <span class="section-index">04 / CALM CONTROL LOOP</span>
+        <h2 id="calm-title">무엇을 관측하고 무엇을 조절하는가</h2>
+        <p>
+          CALM은 wire protocol이나 Reader를 바꾸지 않는다. Writer의 ReaderProxy 상태만 읽고,
+          Reader별 release 스케줄만 바꾸는 폐루프 제어다.
+        </p>
+      </div>
+
+      <div style="overflow-x:auto; margin-bottom:24px">
+        <table class="result-table">
+          <thead>
+            <tr><th>세대</th><th>관측</th><th>release 방식</th><th>핵심 한계 또는 개선</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>초기 CALM 2.0</b></td>
+              <td>그 순간 `REQUESTED`인 byte와 ρ 변화</td>
+              <td>T<sub>NR</sub>에서 budget만큼 `REQUESTED→UNSENT`; 잔여분은 다음 feedback에 의존</td>
+              <td>REQUESTED가 짧은 프로토콜 상태라 지속 부채를 나타내지 못했고, HEARTBEAT 주기 대기로 throughput이 크게 낮아졌다.</td>
+            </tr>
+            <tr>
+              <td><b>기존 CALM 3.0</b></td>
+              <td>Reader별 outstanding repair ρ, ACK 정체, N·F</td>
+              <td>oldest-first shared budget, held-new, heartbeat와 독립된 pacing</td>
+              <td>F를 “재전송 영역 중 하나라도 다시 NACK”으로 세어 지속 PER에서 부분 복구도 실패로 오판하고 B·v를 과감쇠했다.</td>
+            </tr>
+            <tr>
+              <td><b>현재 CALM 3.0</b></td>
+              <td>ρ·ACK 진행·N에 더해 실제 전송 범위 Q<sub>sent</sub>와 재요청 범위 Q<sub>repeat</sub></td>
+              <td>기존 pacing 유지, full-stall만 F로 인정하고 fragment byte 감소를 복구 진행 신호로 사용</td>
+              <td>`ρ≥2S̄`를 우회하던 Cyclone 예외를 제거해 한 sample 복구에는 불필요하게 개입하지 않는다.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout warning" style="margin-bottom:24px">
+        <strong>현재 DDS별 기본 동작:</strong> CycloneDDS 자동화는 최신 byte-progress/full-stall 판정을 기본으로 사용한다.
+        Fast DDS에는 같은 판정이 구현됐지만 `FASTDDS_CALM_FEEDBACK_BYTE_PROGRESS=1`인 실험 옵션이며,
+        기본값 OFF에서는 기존의 검증된 absolute-F 안정 프로파일을 유지한다. 따라서 이식은 완료됐지만 정책 parity는 아직 진행 중이다.
+      </div>
+
+      <div class="control-loop">
+        <div class="control-flow">
+          <div class="control-block sensor">
+            <span class="block-type">Sensor</span>
+            <h3>ReaderProxy 관측</h3>
+            <ul>
+              <li>복구 부채 ρ와 평균 sample 크기 S̄</li>
+              <li>ρ의 2 feedback round 비감소</li>
+              <li>ACK 진행 정체 시간</li>
+              <li>sample별 실제 재전송 횟수 N</li>
+              <li>Q<sub>sent</sub>, Q<sub>repeat</sub>, 확인된 실패 F</li>
+              <li>관측된 이전 batch drain 시간</li>
+              <li>offered rate, ACK service rate, feedback RTT</li>
+            </ul>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="control-block controller">
+            <span class="block-type">Controller</span>
+            <h3>rho_progress + F gain</h3>
+            <ul>
+              <li>ρ ≥ 2S̄에서 조기 활성</li>
+              <li>진행 정체가 있을 때만 개입</li>
+              <li>F=1은 완만한 감속</li>
+              <li>F≥2는 강한 감속</li>
+              <li>ACK·fragment byte 진전 시 additive increase</li>
+            </ul>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="control-block plant">
+            <span class="block-type">Actuator + Plant</span>
+            <h3>DDS release와 링크</h3>
+            <ul>
+              <li>총 release budget B</li>
+              <li>평균 release rate v와 pacing T<sub>P</sub></li>
+              <li>oldest repair 우선</li>
+              <li>남은 B로 held-new release</li>
+              <li>재전송 결과가 다시 ρ·F·ACK에 반영</li>
+            </ul>
+          </div>
+        </div>
+        <div class="feedback">← ACKNACK / NACKFRAG와 ReaderProxy 상태가 다음 제어 입력으로 되돌아온다</div>
+      </div>
+
+      <div class="signal-grid">
+        <article class="signal">
+          <span class="symbol">ρ<sub>r</sub></span>
+          <h3>Outstanding repair bytes</h3>
+          <p>Reader가 한 번 이상 NACK한 뒤 아직 ACK로 해소되지 않은 sample/fragment byte의 합. “얼마나 많은 복구 부채가 남았는가”를 나타낸다.</p>
+        </article>
+        <article class="signal">
+          <span class="symbol">S̄<sub>r</sub></span>
+          <h3>평균 serialized sample</h3>
+          <p>ReaderProxy가 현재 관리하는 Change들의 `serializedPayload.length` 평균. 사용자 입력 payload가 아니라 DDS Layer가 동적으로 계산한다.</p>
+        </article>
+        <article class="signal">
+          <span class="symbol">N<sub>i</sub> / F<sub>i</sub></span>
+          <h3>재시도와 확인된 실패</h3>
+          <p>N은 sample i가 실제 repair 전송에 들어간 횟수다. 최신 F는 feedback guard 이후 비교 가능한 실제 전송 범위가 하나도 줄지 않은 full-stall 횟수다.</p>
+        </article>
+        <article class="signal">
+          <span class="symbol">Q<sub>s</sub> / Q<sub>r</sub></span>
+          <h3>Fragment byte progress</h3>
+          <p>Q<sub>sent</sub>는 feedback bitmap 범위에서 실제 재전송한 byte, Q<sub>repeat</sub>는 그중 다시 요청된 byte다. 둘의 차이를 ACK 이전의 보조 복구 신호로 사용한다.</p>
+        </article>
+        <article class="signal">
+          <span class="symbol">μ̂<sub>DDS</sub></span>
+          <h3>DDS-visible service rate</h3>
+          <p>cumulative ACK로 새로 확인된 byte와 관측 창으로 추정한다. iperf, RSSI, NIC·qdisc 통계 없이 v의 범위를 Reader별로 자율 설정한다.</p>
+        </article>
+        <article class="signal">
+          <span class="symbol">B / v / T<sub>P</sub></span>
+          <h3>제어 출력</h3>
+          <p>B는 tick당 새 전송+재전송 총 release window, v는 평균 release rate, T<sub>P</sub>는 다음 batch까지의 pacing 간격이다.</p>
+        </article>
+      </div>
+
+      <div class="formula">OBSERVATION
+  S̄_r = Σ serialized_sample_bytes_i / M_r
+  ρ_r  = Σ L_i · 1{sample i was NACKed and is not cumulatively ACKed}
+
+FRAGMENT FEEDBACK PROGRESS
+  Q_sent,k   = bytes actually retransmitted inside feedback scope k
+  Q_repeat,k = bytes in Q_sent,k requested again by the next NACKFRAG
+  p_k        = 1 - Q_repeat,k / Q_sent,k
+  F_i(k+1)   = F_i(k) + 1{Q_sent,k &gt; 0 AND Q_repeat,k = Q_sent,k}
+
+ACTIVATE
+  ρ_r ≥ 2S̄_r
+  AND (ρ_r non-shrinking for at least 2 valid feedback rounds
+       OR cumulative ACK stall ≥ 500 ms)
+
+PACING
+  T_P,k = max(T_P,min, 8B_k / v_k, 1.10T_drain,k)
+  T_P,min = 2 ms
+
+SCHEDULING PER TICK
+  b_r = min(oldest_repair_bytes, B_k)
+  b_n = min(held_new_bytes, B_k - b_r)
+  b_r + b_n ≤ B_k
+
+EXIT
+  ρ_r = 0 and held-new drained → reset controller → NORMAL</div>
+
+      <div class="policy-ladder">
+        <article class="policy f0">
+          <strong>F = 0 · 복구 진행</strong>
+          <code>B와 v를 즉시 줄이지 않음</code>
+          <p>첫 재전송 또는 Q<sub>repeat</sub>&lt;Q<sub>sent</sub>인 부분 복구는 정상 진행일 수 있으므로 충분한 전송 기회를 준다.</p>
+        </article>
+        <article class="policy f1">
+          <strong>F = 1 · Soft decrease</strong>
+          <code>B × 0.80 / v × 0.90</code>
+          <p>실제 전송 범위가 한 번도 줄지 않은 첫 full-stall을 확인했을 때만 완만하게 줄인다.</p>
+        </article>
+        <article class="policy f2">
+          <strong>F ≥ 2 · Hard decrease</strong>
+          <code>B × 0.75 / v × 0.875</code>
+          <p>같은 sample의 full-stall이 반복되면 burst와 평균 release rate를 함께 낮춘다.</p>
+        </article>
+      </div>
+
+      <div class="callout" style="margin-top:22px">
+        <strong>핵심 변경:</strong> F는 CALM 진입의 필수 AND 조건이 아니다. ρ와 ACK 진행 정체가 예방적 pacing을 먼저 켜고,
+        F는 실제로 보낸 fragment가 하나도 해소되지 않은 경우에만 감속을 정당화한다. CycloneDDS의 과거 `ρ≥S̄ AND F≥1`
+        우회 조건은 지속 PER에서 불필요한 개입을 만들었으므로 제거했다.
+      </div>
+
+      <div class="grid-2" style="margin-top:22px">
+        <article class="panel">
+          <h3>NORMAL</h3>
+          <p>정상 복구에는 기존 Fast DDS 동작을 유지한다. 첫 NACK만으로 감속하지 않으며, T<sub>NR</sub> 만료 직전에 복구 부채와 ACK 진행 상태를 평가한다.</p>
+        </article>
+        <article class="panel">
+          <h3>CALM_ACTIVE</h3>
+          <p>진입 조건이 만족되면 모든 REQUESTED를 한꺼번에 release하지 않는다. repair를 oldest-first로 pacing하고, 남은 B만 held-new에 배분한다.</p>
+        </article>
+      </div>
+
+      <div class="formula">PAYLOAD-ADAPTIVE BOUNDS
+  B_min     = max(128 KiB, 0.25S̄)
+  B_initial = max(512 KiB, 1.00S̄)
+  B_max     = max(2 MiB,   2.00S̄)
+  AI_B      = max(256 KiB, 0.25S̄)
+
+DDS-ONLY SERVICE ESTIMATOR
+  T_est    = max(4T_P,min, 2T_HB, 4RTT_EWMA)
+  g_ack    = 8A_window / T_window
+  g_sample = min(g_ack, 1.05max(v_command, g_offered))
+  μ̂_DDS,k+1 = μ̂_DDS,k + α(g_sample - μ̂_DDS,k)
+  α_up = 0.25, α_down = 0.10
+
+DYNAMIC RELEASE RATE
+  v_live    = 8L_atom / max(T_HB, T_guard)
+  v_min     = max(v_live, 0.25μ̂_DDS)
+  v_initial = max(v_min, μ_entry)
+  v_max     = max(v_initial, 2max(μ̂_DDS, μ_entry))
+  AI_v      = max(v_live, 0.25max(μ̂_DDS, μ_entry))
+
+FAILURE / RECOVERY CONTROL
+  first full-stall F=1: B ← max(B_min, 0.80B), v ← max(v_min, 0.90v)
+  repeated full-stall:  B ← max(B_min, 0.75B), v ← max(v_min, 0.875v)
+  ACK success:          B ← min(B_max, B + AI_B)
+                        v ← min(v_max, v + AI_v)
+  fragment progress:    p = 1 - Q_repeat/Q_sent
+                        B ← min(B_max, B + p·AI_B)
+                        v ← min(v_max, v + p·AI_v)</div>
+
+      <div class="section-head" style="margin-top:30px; margin-bottom:18px">
+        <h3>폐루프 모델과 계수의 해석</h3>
+        <p>아래 식은 구현을 설명하는 단순화 모델이다. 0.80·0.90·0.75·0.875 등의 수치가 수학적으로 유일한 최적이라는 증명은 아니며, 후보 실험에서 선택된 현재의 경험적 안정 영역이다.</p>
+      </div>
+
+      <div class="formula">BACKLOG DYNAMICS
+  ρ_{k+1} = max(0, ρ_k + a_repair,k - s_ack,k)
+  Δρ_k    = ρ_{k+1} - ρ_k
+
+  desired local stability:
+    E[s_ack,k] &gt; E[a_repair,k]  →  E[Δρ_k] &lt; 0  →  ρ → 0
+
+RELEASE COMMAND
+  r_k = 8B_k / T_P,k
+  because T_P,k ≥ 8B_k/v_k, r_k ≤ v_k
+
+ON FAILURE
+  B_{k+1} = γ_B B_k,   v_{k+1} = γ_v v_k
+  0 &lt; γ_B &lt; γ_v &lt; 1
+
+  r_{k+1}/r_k ≤ γ_v &lt; 1
+  if the rate term dominates T_P:
+    T_P,k+1/T_P,k = γ_B/γ_v &lt; 1
+
+  Interpretation: 한 tick의 burst B는 더 크게 줄이고 tick은 조금 짧게 하되,
+  평균 release rate r은 반드시 감소시켜 큰 burst를 작은 batch 여러 개로 바꾼다.
+
+ACTIVATION ROBUSTNESS
+  ρ ≥ 2S̄ : 적어도 평균 sample 두 개 규모의 repair debt
+  non-shrinking ≥ 2 : 한 번의 확률적 NACK fluctuation을 congestion으로 오판하지 않음
+  ACK stall ≥ 500 ms : 10 Hz 기준 약 5 publish intervals 동안 frontier 무진전
+
+EXPECTED LOAD BOUNDARY
+  λ_effective = λ_new,release + r_repair
+  stable region requires λ_effective &lt; μ_service
+  CALM은 μ_service를 직접 알지 않고 μ̂_DDS와 feedback으로 λ_effective를 낮춘다.</div>
+
+      <div class="callout warning" style="margin-top:16px">
+        <strong>수식의 적용 범위:</strong> 지속적으로 λ&gt;μ이고 손실도 끝나지 않으면 어떤 완전 신뢰성 제어도 유한한 지연을 보장할 수 없다.
+        이 영역의 목표는 무조건 ρ=0이 아니라 발산과 불필요한 중복 재전송을 줄이고, 잘못된 CALM 개입으로 Default보다 악화되지 않게 하는 것이다.
+      </div>
+
+      <div style="margin-top:24px; overflow-x:auto">
+        <table class="state-table">
+          <thead><tr><th>관측값</th><th>의미</th><th>현재 사용처</th></tr></thead>
+          <tbody>
+            <tr><td class="state-name">ρ</td><td>한 번 이상 NACK됐고 아직 cumulative ACK으로 해소되지 않은 Reader별 총 byte</td><td>활성화 임계값과 복구 완료 판단</td></tr>
+            <tr><td class="state-name">S̄</td><td>ReaderProxy가 관리하는 CacheChange의 평균 serialized sample 크기</td><td>payload에 적응하는 ρ 임계값 계산</td></tr>
+            <tr><td class="state-name">ρ progress</td><td>유효 feedback round 사이에서 ρ가 실제로 줄고 있는지</td><td>2회 연속 비감소 시 혼잡 의심</td></tr>
+            <tr><td class="state-name">ACK age</td><td>cumulative ACK base 또는 새 ACK byte가 마지막으로 전진한 뒤 경과 시간</td><td>500ms 정체 시 활성화 보조 조건</td></tr>
+            <tr><td class="state-name">N<sub>i</sub></td><td>sample i가 실제 repair 전송에 들어간 횟수</td><td>진단·CSV 분석용 보조 신호</td></tr>
+            <tr><td class="state-name">F<sub>i</sub></td><td>실제 재전송 영역이 이후 유효 피드백에서 다시 요청된 횟수</td><td>활성 상태의 soft/hard 감쇠 선택</td></tr>
+            <tr><td class="state-name">Q<sub>sent</sub></td><td>해당 feedback bitmap 범위에서 Writer가 실제 transport에 등록한 repair byte</td><td>비교 가능한 재전송 분모</td></tr>
+            <tr><td class="state-name">Q<sub>repeat</sub></td><td>Q<sub>sent</sub> 가운데 후속 NACKFRAG에서 다시 요청된 byte</td><td>full-stall 판정과 fragment 복구율 계산</td></tr>
+            <tr><td class="state-name">μ̂<sub>DDS</sub></td><td>cumulative ACK 진행 byte를 관측 창으로 나눈 뒤 비대칭 EWMA한 DDS-visible service rate</td><td>링크 사전 측정 없는 v 범위 계산</td></tr>
+            <tr><td class="state-name">g<sub>offered</sub></td><td>Writer가 생성한 serialized byte와 생성 간격의 EWMA</td><td>ACK compression 상한과 application-limited 하한 보조</td></tr>
+            <tr><td class="state-name">T<sub>drain</sub></td><td>이전 batch가 DDS 전송 경로에서 빠지는 데 걸린 관측 시간의 EWMA</td><td>다음 pacing tick의 하한 결정</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout warning" style="margin-top:20px">
+        <strong>제어 경계:</strong> CALM은 애플리케이션의 write()를 막거나 오래된 sample을 버리지 않는다.
+        새 sample은 WHC에 held-new로 유지하고 네트워크 release 시점만 조절한다. OS socket buffer, qdisc, NIC 설정과 사전 링크 대역폭도 제어 입력으로 사용하지 않는다.
+      </div>
+      <div class="callout" style="margin-top:14px">
+        <strong>기존 FlowController와의 관계:</strong> 정적인 bytes-per-period 대역폭 제한은 사용하지 않는다.
+        CALM이 B·v·T<sub>P</sub>와 release 대상을 결정하고, 기존 FlowController는 DATA/DATA_FRAG 구성, locator 선택,
+        전송 thread, fragment 순회와 실패 재등록을 수행하는 실행 경로로만 재사용한다.
+      </div>
+
+      <div class="section-head" style="margin-top:34px; margin-bottom:20px">
+        <h3>시간 순서에 따른 실행 과정</h3>
+        <p>CALM의 pacing은 이미 요청된 repair를 처리할 때 다음 3초 HEARTBEAT까지 기다리지 않는다.</p>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="state-table">
+          <thead><tr><th>순서</th><th>사건</th><th>CALM 동작</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>새 sample 생성·정상 전송</td><td>NORMAL 상태에서 기존 Fast DDS Reliable 경로 사용</td></tr>
+            <tr><td>2</td><td>ACKNACK/NACKFRAG 수신</td><td>요청된 고유 byte를 ρ에 등록하고, 직전 Q<sub>sent</sub>와 현재 Q<sub>repeat</sub>를 비교해 N·F·byte progress 갱신</td></tr>
+            <tr><td>3</td><td>T<sub>NR</sub> 만료 직전</td><td>ρ 임계값, 비감소 round와 ACK stall을 평가</td></tr>
+            <tr><td>4-A</td><td>진입 조건 불충족</td><td>NORMAL 유지, 현재 REQUESTED를 기존 방식으로 처리</td></tr>
+            <tr><td>4-B</td><td>진입 조건 충족</td><td>CALM_ACTIVE 전환, 새 release를 held-new로 보류</td></tr>
+            <tr><td>5</td><td>Pacing tick</td><td>이전 batch drain 확인 후 oldest repair를 먼저 B만큼 선택하고 남는 B에 held-new 배정</td></tr>
+            <tr><td>6</td><td>DDS 전송 경로 등록</td><td>repair는 REQUESTED→UNSENT→UNDERWAY→UNACKNOWLEDGED, held-new도 전송 상태로 전환</td></tr>
+            <tr><td>7-A</td><td>Q<sub>repeat</sub>=Q<sub>sent</sub></td><td>full-stall F에 따라 B와 v를 multiplicative decrease</td></tr>
+            <tr><td>7-B</td><td>0≤Q<sub>repeat</sub>&lt;Q<sub>sent</sub></td><td>부분 복구율 p를 기록하고 Cyclone 최신 프로파일에서는 p에 비례해 제한적으로 회복</td></tr>
+            <tr><td>7-C</td><td>Cumulative ACK 진행</td><td>ρ를 해소하고 B와 v를 additive increase하며 μ̂<sub>DDS</sub> 갱신</td></tr>
+            <tr><td>8</td><td>ρ=0</td><td>제어 상태 초기화, NORMAL 복귀, 남은 held-new 정상 release</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="results" aria-labelledby="results-title">
+      <div class="section-head">
+        <span class="section-index">05 / EXPERIMENT</span>
+        <h2 id="results-title">현재까지의 핵심 실험 결과</h2>
+        <p>모든 비교는 OPT 1+2를 공통 통제변인으로 사용했다. Fast DDS와 CycloneDDS는 WHC·재전송 스케줄러 특성이 달라 같은 수치로 직접 서열화하지 않고, 각 DDS 안에서 Default와 CALM을 비교한다.</p>
+      </div>
+
+      <div class="metric-summary">
+        <div class="metric"><span class="value">2220/2220</span><span class="label">Fast DDS 동적-v CALM 8조건 완전 수신</span></div>
+        <div class="metric"><span class="value">2→100</span><span class="label">Fast 4 MiB 극한 조건 Default→CALM 수신</span></div>
+        <div class="metric"><span class="value">22→63</span><span class="label">Cyclone 과감쇠 CALM→현재 strict detector 수신</span></div>
+        <div class="metric"><span class="value">85%</span><span class="label">현재 연구 구현 완성도</span></div>
+      </div>
+
+      <div class="comparison-chart" aria-label="Default와 CALM 핵심 지표 비교 막대그래프">
+        <div class="bar-group">
+          <div class="bar-title">Fast DDS · 4 MiB, 10 Hz, 지속 CASE A 20%, 180 Mbps, 100 samples의 수신</div>
+          <div class="bar-row"><span>Default</span><div class="bar-track"><div class="bar-fill default" style="width:2%"></div></div><b>2/100</b></div>
+          <div class="bar-row"><span>CALM</span><div class="bar-track"><div class="bar-fill calm" style="width:100%"></div></div><b>100/100</b></div>
+        </div>
+        <div class="bar-group">
+          <div class="bar-title">CycloneDDS · 동일 극한 조건의 p95 delay</div>
+          <div class="bar-row"><span>기존 CALM</span><div class="bar-track"><div class="bar-fill default" style="width:100%"></div></div><b>29.61 s</b></div>
+          <div class="bar-row"><span>현재</span><div class="bar-track"><div class="bar-fill calm" style="width:25.56%"></div></div><b>7.57 s</b></div>
+        </div>
+      </div>
+
+      <div style="margin-top:24px; overflow-x:auto">
+        <table class="result-table">
+          <thead>
+            <tr><th>Fast DDS 검증 범위</th><th>Default/고정 v</th><th>현재 CALM</th><th>해석</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>5개 λ≤μ 일시 혼잡 조건</td><td>조건별 높은 tail delay</td><td>모두 완전 수신, p95 87.9–97% 감소</td><td>현재 주 목표 영역에서 burst 억제 효과 확인</td></tr>
+            <tr><td>3개 λ&gt;μ 스트레스 조건</td><td>2개 timeout</td><td>3개 모두 600/600, p95 약 31–84초</td><td>완료율은 개선됐지만 실시간성 문제는 남음</td></tr>
+            <tr><td>동적 v 8조건</td><td>고정 v: 2220/2220, p95 평균 10.58초</td><td>2220/2220, p95 평균 9.68초</td><td>외부 링크 입력 제거, 평균 p95 약 8.5% 감소</td></tr>
+            <tr><td>4 MiB×10 Hz, 지속 A20</td><td>Default 2/100, p95 171.60초, ρ 222.97MB</td><td>100/100, p95 123.78–144.78초, ρ 67.21–77.97MB</td><td>지속 과부하에서도 신뢰성과 ρ를 크게 개선했지만 지연은 여전히 매우 큼</td></tr>
+            <tr><td>Fast full-stall 실험 옵션</td><td>기존 안정 CALM p95 123.78–144.78초</td><td>100/100, p95 135.25초, ρ 72.04MB</td><td>회귀 없이 기존 변동 범위이나 명확한 추가 우위가 없어 기본 OFF 유지</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:24px; overflow-x:auto">
+        <table class="result-table">
+          <thead>
+            <tr><th>CycloneDDS 검증 범위</th><th>Default/기존 CALM</th><th>현재 결과</th><th>해석</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>포팅 표준 8조건</td><td>Default와 기존 CALM 모두 2220/2220</td><td>일시 손실 대표 반복에서 p95 42.5%, 32.3% 감소</td><td>일시 혼잡에서 핵심 pacing 동작 확인. jitter 개선은 확인되지 않음</td></tr>
+            <tr><td>4 MiB×10 Hz 지속 A20 · 기존 absolute-F</td><td>Default 62/100, p95 7.75초</td><td>기존 CALM 22/100, 반복 21/100, p95 약 30초</td><td>부분 fragment 복구를 실패로 세어 v가 약 25Mbps까지 과감쇠</td></tr>
+            <tr><td>잔여율 비례 감쇠 V4</td><td>23/100, p95 26.55초</td><td>평균 residual 0.256인데도 수천 회 감쇠</td><td>“조금 남음”을 매 round 실패로 세는 방식은 불충분</td></tr>
+            <tr><td>full-stall + strict detector V7</td><td>ρ max=1S̄, F max=4</td><td>63/100, p95 7.57초, CALM 활성 0행</td><td>ρ&lt;2S̄이므로 개입하지 않아 Default 수준으로 회복. 우위가 아니라 회귀 제거</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout warning" style="margin-top:20px">
+        <strong>현재 증거의 한계:</strong> Fast의 큰 개선과 Cyclone의 회귀 제거는 loopback/netem 결과다. Cyclone V7은 CALM이 활성화된 개선이 아니라
+        불필요한 개입을 피한 결과다. 실제 실험용 Wi-Fi에서 같은 조건을 3~5회 반복하고 Default·CALM을 교차 순서로 실행해야 최종 효과로 주장할 수 있다.
+      </div>
+    </section>
+
+    <section id="impact" aria-labelledby="impact-title">
+      <div class="section-head">
+        <span class="section-index">06 / EXPECTED IMPACT</span>
+        <h2 id="impact-title">제대로 완성했을 때의 기대효과</h2>
+        <p>아래 항목 중 loopback 안정화는 관측됐고, 무선·다중 Reader·벤더 독립성은 향후 검증 대상이다.</p>
+      </div>
+
+      <div class="expectation-grid">
+        <article class="expectation"><h3>재전송 폭풍 억제</h3><p>큰 REQUESTED 집합을 한 번에 쏟지 않고 B와 T<sub>P</sub>로 나눠 양성 피드백을 음의 피드백으로 전환한다.</p></article>
+        <article class="expectation"><h3>Tail delay 감소</h3><p>oldest gap을 우선 복구해 ACK base가 다시 전진하도록 만들고, 뒤에 쌓인 in-order delivery 지연을 줄인다.</p></article>
+        <article class="expectation"><h3>완전 신뢰성 유지</h3><p>샘플을 버리는 부분 신뢰성 방식이 아니라 release 시점과 양을 조절한다. 목표는 ρ→0과 2000/2000 완료다.</p></article>
+        <article class="expectation"><h3>DDS Layer 자율성</h3><p>사전 링크 용량, RSSI, 커널 큐 크기를 요구하지 않고 Writer의 NACK·ACK·WHC 상태만 사용한다.</p></article>
+        <article class="expectation"><h3>Reader별 격리</h3><p>나쁜 Reader의 repair debt가 다른 Reader의 budget을 잠식하지 않도록 ReaderProxy별 제어 루프를 둔다.</p></article>
+        <article class="expectation"><h3>표준 호환성</h3><p>RTPS wire format과 애플리케이션 API를 바꾸지 않아 stock Reader와 통신 가능한 Writer-side scheduling으로 유지한다.</p></article>
+      </div>
+    </section>
+
+    <section id="roadmap" aria-labelledby="roadmap-title">
+      <div class="section-head">
+        <span class="section-index">07 / ROADMAP</span>
+        <h2 id="roadmap-title">앞으로 구현·최적화할 항목</h2>
+        <p>파라미터 하나의 최저 p95보다, 여러 손실 유형과 무선 조건에서 실패하지 않는 강인한 영역을 찾는 것이 우선이다.</p>
+      </div>
+
+      <div class="roadmap">
+        <article class="roadmap-item">
+          <span class="priority">P0 · 무선 검증</span>
+          <h3>실험용 Wi-Fi에서 동일 조건 A/B 반복</h3>
+          <p>Normal·CASE L·CASE D·CASE A에서 Default/CALM을 교차 순서로 각 3~5회 실행하고, 2000/2000·p95·jitter·수신 Hz·ρ·재전송 횟수를 함께 비교한다.</p>
+        </article>
+        <article class="roadmap-item">
+          <span class="priority">P0 · DDS parity</span>
+          <h3>Fast/Cyclone full-stall 정책 통일</h3>
+          <p>Cyclone 최신 Q<sub>sent</sub>/Q<sub>repeat</sub> 판정을 Fast의 기본 안정 프로파일과 여러 λ≤μ 조건에서 반복 비교한다. Fast 실험 옵션이 명확한 우위를 보일 때만 기본값으로 승격한다.</p>
+        </article>
+        <article class="roadmap-item">
+          <span class="priority">P1 · 활성 조건 검증</span>
+          <h3>ρ 임계값과 full-stall 조건의 강인한 범위 탐색</h3>
+          <p>`2S̄`, non-shrinking 2 rounds, ACK stall 500 ms와 `Q_repeat=Q_sent`가 payload·Hz·PER 변화에도 유효한지 확인한다. 한 조건 최적값이 아니라 안전 영역을 찾는다.</p>
+        </article>
+        <article class="roadmap-item">
+          <span class="priority">P1 · pacing</span>
+          <h3>T<sub>P</sub> 하한과 drain 추정 검증</h3>
+          <p>`max(2 ms, 8×batch/v, drain×1.10)`이 이전 batch 중첩을 실제로 막는지 transport enqueue/complete 시각과 패킷 캡처로 검증한다.</p>
+        </article>
+        <article class="roadmap-item">
+          <span class="priority">P1 · 스케줄링/QoS</span>
+          <h3>held-new admission과 History 상호작용</h3>
+          <p>최대/최소 admission window 8/2 MiB, KEEP_LAST depth, blocking write, 다수 Writer·Reader에서 oldest-repair 우선 정책의 starvation과 공정성을 확인한다.</p>
+        </article>
+        <article class="roadmap-item">
+          <span class="priority">P1 · Cyclone 회귀 검증</span>
+          <h3>최신 strict detector로 표준 8조건 재실행</h3>
+          <p>기존 Cyclone 포팅 8조건은 absolute-F 버전 결과다. 최신 full-stall·strict detector로 동일 8조건과 실제 Wi-Fi를 다시 실행해 활성 조건에서의 이득도 확인한다.</p>
+        </article>
+        <article class="roadmap-item">
+          <span class="priority">P2 · 측정 신뢰도</span>
+          <h3>계측 오버헤드 제거와 통계 설계</h3>
+          <p>고용량 storm CSV를 sampling/비동기 기록으로 바꾸고, confidence interval·효과 크기·실패율을 포함한 재현 가능한 실험 manifest를 만든다.</p>
+        </article>
+      </div>
+
+      <div style="margin-top:28px; overflow-x:auto">
+        <table class="parameter-table">
+          <thead><tr><th>파라미터</th><th>현재값</th><th>역할</th><th>상태</th></tr></thead>
+          <tbody>
+            <tr><td>ρ threshold</td><td>2S̄</td><td>CALM 조기 진입 기준</td><td class="good">Loopback 선택</td></tr>
+            <tr><td>ACK stall</td><td>500 ms</td><td>Reader ACK frontier 정체 감지</td><td class="pending">무선 재검증</td></tr>
+            <tr><td>non-shrinking rounds</td><td>2</td><td>ρ가 줄지 않는 feedback 지속성</td><td class="pending">무선 재검증</td></tr>
+            <tr><td>B min / initial / max</td><td>max(128KiB,0.25S̄) / max(512KiB,S̄) / max(2MiB,2S̄)</td><td>payload-adaptive pacing window</td><td class="good">8조건 일반화 선택</td></tr>
+            <tr><td>v min / initial / max</td><td>μ̂<sub>DDS</sub>, μ<sub>entry</sub>, v<sub>live</sub> 기반 동적식</td><td>DDS-visible 평균 release rate 범위</td><td class="good">외부 링크 입력 제거</td></tr>
+            <tr><td>Soft F=1 gain</td><td>0.80 / 0.90</td><td>B / v 완만한 감소</td><td class="good">Loopback 선택</td></tr>
+            <tr><td>Hard F≥2 gain</td><td>0.75 / 0.875</td><td>B / v 강한 감소</td><td class="good">Loopback 선택</td></tr>
+            <tr><td>ACK additive increase</td><td>max(256KiB,0.25S̄) / max(v<sub>live</sub>,0.25max(μ̂,μ<sub>entry</sub>))</td><td>B / v의 점진적 회복</td><td class="good">DDS-only 일반화</td></tr>
+            <tr><td>T<sub>P</sub> floor / drain guard</td><td>2 ms / 1.10</td><td>batch 중첩 방지와 pacing 간격</td><td class="good">Loopback 선택</td></tr>
+            <tr><td>feedback min age</td><td>Fast 100 ms / Cyclone 10 ms</td><td>동일 피드백 과대계수 방지; DDS feedback cadence 반영</td><td class="pending">실제 Wi-Fi RTT 재검증</td></tr>
+            <tr><td>fragment progress</td><td>p=1-Q<sub>repeat</sub>/Q<sub>sent</sub></td><td>full-stall F 판정과 ACK 이전 보조 성공 신호</td><td class="pending">Fast 기본 승격 검증</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>
+        Source of truth: `src/Fast-DDS`, `src/CycloneDDS`, `src/calm_pretest_yw`, `results/test_yw_2` ·
+        이 페이지의 수치는 2026-08-17 현재 로컬 구현과 실험 결과를 기준으로 한다.
+      </p>
+    </footer>
+  </main>
+</body>
+</html>
