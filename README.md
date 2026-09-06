@@ -187,13 +187,31 @@ rate를 보장하지 않는다는 점을 확인했습니다.
 
 - Workload: `1 MiB x 20 Hz`, 2,000 samples
 - Link: 180 Mbps, `3 +/- 1 ms`, persistent PER 10%
-- Default: `1031/2000`, 300 s timeout, p95 245.55 s, max `U` 246.19 MB
-- CALM fixed 50 ms: `2000/2000`, 232.70 s, p95 125.07 s,
-  max `U` 30.83 MB
+- Common DDS settings: Fast DDS Reliable, OPT 1 `1472 B`, OPT 2 HEARTBEAT
+  `25 ms`
+- CALM settings: fixed `T_p=50 ms`, `K_d=K_i=0.25`
+
+| Metric | Optimized Default | CALM, fixed T_p=50 ms | Change |
+| --- | ---: | ---: | ---: |
+| Received | 1031/2000 (51.55%) | 2000/2000 (100%) | complete recovery |
+| Timeout | yes, 300 s | no, 232.70 s | timeout removed |
+| Mean end-to-end delay | 155.20 s | 73.88 s | 52.4% lower |
+| p95 end-to-end delay | 245.55 s | 125.07 s | 49.1% lower |
+| Maximum `U` | 234.79 MiB | 29.40 MiB | 87.5% lower |
+| Sample retransmit count p95 | 20 | 3 | 85.0% lower |
+| Sample retransmit count max | 37 | 8 | 78.4% lower |
+| Failed-repair count p95 | 19 | 2 | 89.5% lower |
+| Failed-repair count max | 36 | 7 | 80.6% lower |
+| Oldest repair age max | 83.34 s | 16.45 s | 80.3% lower |
+| ACK-progress stall max | 83.34 s | 4.53 s | 94.6% lower |
 
 이 결과는 CALM의 budget pacing이 대량 repair burst와 backlog peak를 줄일 수
-있음을 보여줍니다. 단일 조건의 결과이므로 모든 Wi-Fi에서 같은 개선률을
-보장하지는 않습니다.
+있고, 반복 실패를 줄여 완전 수신을 회복할 수 있음을 보여줍니다. Default와
+CALM은 같은 자동화 batch에서 연속 실행되었으며 OPT 1, 2와 네트워크 조건은
+동일합니다. 다만 이 표는 하나의 loopback/netem 조건에서 얻은 대표 1회
+A/B 결과이므로 모든 Wi-Fi에서 같은 개선률을 보장하지는 않습니다. 상세한
+해석은 [`docs/fixed_tp50_default_vs_calm.md`](docs/fixed_tp50_default_vs_calm.md)에
+정리되어 있습니다.
 
 ## Cyclone DDS Status
 
