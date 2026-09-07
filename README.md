@@ -7,7 +7,8 @@ DDS layer에서 관측할 수 있는 정보만 사용합니다.
 
 > **현재 상태:** Fast DDS 2.6.11에 CALM 4.1의 진입 조건, budget 제어,
 > oldest-repair-first scheduling, held-new, pacing 실행 경로가 구현되어 있습니다.
-> 고정 `T_p=50 ms`의 대표 실험에서는 Optimized Default보다 크게 개선됐지만,
+> 고정 `T_p=50 ms`의 CALM 4.0 paired 실험에서는 Optimized Default보다 크게
+> 개선됐고 CALM 4.1의 별도 실행에서도 같은 방향이 확인됐지만,
 > workload와 링크가 달라져도 적용할 수 있는 `T_p` 결정식은 아직 연구 중입니다.
 > Cyclone DDS 0.10.5 포팅은 CALM 3 계열 기능 prototype입니다.
 
@@ -39,6 +40,56 @@ OPT 1, 2는 통제 변인이고 CALM controller만 조작 변인입니다.
 - Piggyback HEARTBEAT는 기존처럼 활성화
 
 링크 용량을 미리 입력하는 정적 link-capacity optimization은 사용하지 않습니다.
+
+## Notation
+
+### Observation and feedback
+
+| Symbol | Name | Meaning | Unit |
+| --- | --- | --- | --- |
+| $r$ | Reader index | Writer와 match된 Reader 또는 ReaderProxy 식별자 | - |
+| $n$ | Feedback round | 실제 repair release 뒤 유효 ACKNACK/NACKFRAG가 도착해 닫힌 제어 round | round |
+| $U_{r,n}$ | Repair debt | Reader $r$이 NACK한 뒤 cumulative ACK으로 아직 해소되지 않은 WHC sample 총량 | byte |
+| $\Delta U_n$ | Debt change | $U_n-U_{n-1}$; 양수/0이면 적체 비감소, 음수이면 repair debt 감소 | byte |
+| $F^{old}_{r,n}$ | Oldest failed-repair count | 가장 오래된 repair sample에서 실제 전송 영역이 이후 feedback에 다시 요청된 누적 횟수 | count |
+| $\Delta F^{old}_{r,n}$ | New repair failure | 현재 round에 새로 확인된 oldest sample의 repair 실패 횟수 | count |
+| $p_n$ | Failure fraction | 현재 round에서 release한 repair 중 다시 요청된 byte 비율, $0\le p_n\le1$ | ratio |
+| $q_n$ | Recovery fraction | 현재 round에서 ACK으로 해소된 repair byte 비율, $0\le q_n\le1$ | ratio |
+| $\bar S$ | Mean sample size | ReaderProxy가 관리한 serialized sample byte의 평균 | byte/sample |
+| $D_n$ | Decrease event | 반복 실패와 debt 비감소 또는 ACK timeout이 함께 확인된 상태 | Boolean |
+| $I_n$ | Increase event | ACK repair progress와 debt 감소가 함께 확인된 상태 | Boolean |
+
+### Budget and scheduling
+
+| Symbol | Name | Meaning | Unit |
+| --- | --- | --- | --- |
+| $B_n$ | Release budget | round $n$에서 한 pacing opportunity에 허용하는 repair와 held-new의 총량 | byte |
+| $B_{initial}$ | Initial budget | CALM episode 진입 직후 사용하는 첫 budget | byte |
+| $B_{min}$ | Minimum budget | 과도한 감소로 전송이 멈추지 않도록 하는 budget 하한 | byte |
+| $B_{max}$ | Maximum budget | 반복 증가가 다시 큰 burst를 만들지 않도록 하는 budget 상한 | byte |
+| $K_d$ | Decrease gain | 실패 비율 $p_n$이 budget 감소에 미치는 크기 | - |
+| $K_i$ | Increase gain | 복구 비율 $q_n\bar S$가 budget 증가에 미치는 크기 | - |
+| $R$ | Pending repair | 현재 release를 기다리는 requested repair 총량 | byte |
+| $H$ | Held-new | WHC에는 들어왔지만 CALM이 network release를 보류한 새 데이터 총량 | byte |
+| $b_r$ | Repair allocation | 한 pacing opportunity에서 repair에 배정된 budget | byte |
+| $b_n$ | New-data allocation | repair 배정 후 남은 budget 중 held-new에 배정된 양 | byte |
+
+### Time and rate
+
+| Symbol | Name | Meaning | Unit |
+| --- | --- | --- | --- |
+| $T_p$ | Pacing period | budget batch를 release한 뒤 다음 opportunity까지의 간격 | ms |
+| $T_{ACK,n}$ | ACK-progress age | 마지막 cumulative ACK base 진전 이후 지난 시간 | ms |
+| $T_{to,n}$ | Feedback timeout | ACK 정체를 판단하는 동적 timeout | ms |
+| $\widehat T_{FB,n}$ | Feedback-time estimate | repair release부터 이에 대응하는 valid feedback까지 시간의 추정값 | ms |
+| $\widehat\mu_{entry}$ | Entry service-rate estimate | CALM 진입 전 cumulative ACK로 확인한 DDS delivery service rate | bit/s |
+| $\eta$ | Safety factor | 추정 오차와 처리 변동을 고려해 계산한 $T_p$에 주는 여유 계수 | - |
+| $\lambda$ | Offered rate | application이 Writer에 공급하는 serialized payload rate | bit/s |
+| $\mu$ | Service rate | DDS와 경로가 실제 ACK 완료까지 처리할 수 있는 rate | bit/s |
+
+`feedback round`는 단순 HEARTBEAT 횟수가 아닙니다. 실제 repair를 release한 뒤
+그 영역에 대응하는 유효 feedback을 Writer가 받아 성공 또는 실패를 판정할 때
+한 round가 닫힙니다.
 
 ## 1. Budget B Control
 
@@ -180,15 +231,17 @@ completion 때문에 같은 실제 service rate가 보장되지 않음을 보여
 
 ## Representative Result
 
-Fast DDS에서 OPT 1, 2를 동일하게 적용한 Default와 CALM 4.1의 대표 A/B 결과입니다.
+Fast DDS에서 OPT 1, 2를 동일하게 적용한 Default와 CALM 4.0의 대표 paired A/B
+결과입니다. 현재 핵심 구현인 CALM 4.1 이전의 controller 결과이므로 버전을
+구분해서 해석해야 합니다.
 
 - Workload: `1 MiB x 20 Hz`, 2,000 samples
 - Loopback: 180 Mbps, `3 +/- 1 ms`, persistent PER 10%
 - OPT 1: `1472 B`, OPT 2 HEARTBEAT: `25 ms`
-- CALM: fixed `T_p=50 ms`, `K_d=K_i=0.25`
+- CALM 4.0: fixed `T_p=50 ms`, `K_d=K_i=0.25`
 - Timeout: 300 s
 
-| Metric | Optimized Default | CALM 4.1 | Change |
+| Metric | Optimized Default | CALM 4.0 | Change |
 | --- | ---: | ---: | ---: |
 | Received | 1031/2000 | 2000/2000 | complete recovery |
 | Timeout | yes | no, 232.70 s | timeout removed |
@@ -204,6 +257,45 @@ Fast DDS에서 OPT 1, 2를 동일하게 적용한 Default와 CALM 4.1의 대표 
 완전 수신을 회복한 결과입니다. 하나의 loopback/netem 조건에서 얻은 대표
 1회 A/B이므로 모든 Wi-Fi에서 같은 개선률을 보장하지는 않습니다. 자세한 분석은
 [`docs/fixed_tp50_default_vs_calm.md`](docs/fixed_tp50_default_vs_calm.md)에 있습니다.
+
+### Bar chart
+
+각 subplot에서 왼쪽은 Optimized Default, 오른쪽은 CALM 4.0입니다. Receive ratio를
+제외한 지표는 낮을수록 좋습니다.
+
+![Optimized Default and CALM 4.0 metric bar charts](docs/assets/tp50_metrics_bar.png)
+
+### Line chart
+
+같은 값을 Default에서 CALM으로 이동하는 slope 형태로 나타냈습니다.
+
+![Optimized Default to CALM 4.0 metric line charts](docs/assets/tp50_metrics_line.png)
+
+### Other documented comparisons
+
+다른 조건은 Fast DDS CALM 4.0과 Cyclone DDS CALM 3 prototype을 섞어 하나의
+성능 주장으로 만들지 않고, controller 버전을 표시한 별도 그림으로 제공합니다.
+지연 범위 차이가 커서 y축은 로그 척도입니다.
+
+![Cross-condition p95 delay bar chart](docs/assets/cross_condition_p95_bar.png)
+
+![Cross-condition p95 delay line chart](docs/assets/cross_condition_p95_line.png)
+
+그래프는 다음 명령으로 다시 만들 수 있습니다.
+
+```bash
+python3 -m pip install -r experiments/requirements-plot.txt
+python3 experiments/scripts/plot_calm_results.py
+```
+
+입력값과 출처 범위는 [`docs/data/`](docs/data/)에 있습니다. 특히 Fast DDS 대표
+Default는 timeout 전에 받은 1,031개 sample만으로 p95가 계산됐으므로 완전 수신
+분포와 동등한 통계로 과해석하면 안 됩니다.
+
+CALM 4.1은 같은 명목 조건의 별도 fixed-50 ms 실행에서 2,000/2,000 수신,
+p95 127.20 s, maximum $U$ 34.45 MiB를 기록했습니다. 이는 CALM 4.0 paired
+결과와 개선 방향은 같지만, 다른 시각에 수행한 실행이므로 위 paired 개선율 계산에는
+포함하지 않았습니다.
 
 ## Implementation
 
@@ -234,6 +326,8 @@ CALM/
   cyclonedds-0.10.5/     # CALM 3 prototype patch and source overlay
 experiments/             # ROS 2 package, profiles and automation scripts
 docs/                    # current implementation and experiment reports
+  assets/                # generated bar and line charts
+  data/                  # curated values used by plotting scripts
 S1/
   calm_pretest/          # initial baseline snapshot
   document/              # S1-era proposal and legacy research documents

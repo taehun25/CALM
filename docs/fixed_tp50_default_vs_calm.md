@@ -1,4 +1,4 @@
-# Fixed Tp=50 ms: Optimized Default vs CALM
+# Fixed Tp=50 ms: Optimized Default vs CALM 4.0
 
 ## Question
 
@@ -18,7 +18,7 @@ Both runs used the same settings except for CALM.
 - OPT 2: periodic HEARTBEAT period `25 ms`
 - Timeout: 300 seconds
 - Control: Optimized Default, CALM disabled
-- Treatment: CALM enabled, fixed `T_p=50 ms`, `K_d=K_i=0.25`
+- Treatment: CALM 4.0 enabled, fixed `T_p=50 ms`, `K_d=K_i=0.25`
 
 OPT 1 and OPT 2 are controlled variables. CALM is the manipulated variable.
 
