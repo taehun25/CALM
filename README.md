@@ -33,7 +33,9 @@ Writer                                       Reader
 ### Optimized baseline
 
 실험에서는 다음 두 최적화를 Default와 CALM 양쪽에 똑같이 적용합니다.
-해당 최적화는 <optimizing 논문 추가> 을 참고하였다. 
+해당 최적화는
+[Optimizing ROS 2 Communication for Wireless Robotic Systems](docs/Optimizing_ROS_2_Communication_for_Wireless_Robotic_Systems.pdf)을
+참고하였습니다.
 <!--따라서 OPT 1, 2는 통제 변인이고 CALM controller만 조작 변인입니다.-->
 
 - **OPT 1:** `maxMessageSize=1472 B`
