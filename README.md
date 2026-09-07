@@ -258,33 +258,8 @@ Fast DDS에서 OPT 1, 2를 동일하게 적용한 Default와 CALM 4.0의 대표 
 1회 A/B이므로 모든 Wi-Fi에서 같은 개선률을 보장하지는 않습니다. 자세한 분석은
 [`docs/fixed_tp50_default_vs_calm.md`](docs/fixed_tp50_default_vs_calm.md)에 있습니다.
 
-### Bar chart
-
-각 subplot에서 왼쪽은 Optimized Default, 오른쪽은 CALM 4.0입니다. Receive ratio를
-제외한 지표는 낮을수록 좋습니다.
-
-![Optimized Default and CALM 4.0 metric bar charts](docs/assets/tp50_metrics_bar.png)
-
-### Line chart
-
-같은 값을 Default에서 CALM으로 이동하는 slope 형태로 나타냈습니다.
-
-![Optimized Default to CALM 4.0 metric line charts](docs/assets/tp50_metrics_line.png)
-
-### Other documented comparisons
-
-다른 조건은 Fast DDS CALM 4.0과 Cyclone DDS CALM 3 prototype을 섞어 하나의
-성능 주장으로 만들지 않고, controller 버전을 표시한 별도 그림으로 제공합니다.
-지연 범위 차이가 커서 y축은 로그 척도입니다.
-
-![Cross-condition p95 delay bar chart](docs/assets/cross_condition_p95_bar.png)
-
-![Cross-condition p95 delay line chart](docs/assets/cross_condition_p95_line.png)
-
-그래프 생성 코드와 원본 실험 CSV는 연구자의 로컬 결과 디렉터리에서 관리하며 이
-저장소에는 포함하지 않습니다. 특히 Fast DDS 대표 Default는 timeout 전에 받은
-1,031개 sample만으로 p95가 계산됐으므로 완전 수신 분포와 동등한 통계로
-과해석하면 안 됩니다.
+Fast DDS 대표 Default는 timeout 전에 받은 1,031개 sample만으로 p95가
+계산됐으므로 완전 수신 분포와 동등한 통계로 과해석하면 안 됩니다.
 
 CALM 4.1은 같은 명목 조건의 별도 fixed-50 ms 실행에서 2,000/2,000 수신,
 p95 127.20 s, maximum $U$ 34.45 MiB를 기록했습니다. 이는 CALM 4.0 paired
@@ -320,7 +295,6 @@ CALM/
   cyclonedds-0.10.5/     # CALM 3 prototype patch and source overlay
 experiments/             # ROS 2 package, profiles and automation scripts
 docs/                    # current implementation and experiment reports
-  assets/                # generated bar and line charts
 S1/
   calm_pretest/          # initial baseline snapshot
   document/              # S1-era proposal and legacy research documents
