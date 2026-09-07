@@ -32,14 +32,15 @@ Writer                                       Reader
 
 ### Optimized baseline
 
-실험에서는 다음 두 최적화를 Default와 CALM 양쪽에 똑같이 적용합니다. 따라서
-OPT 1, 2는 통제 변인이고 CALM controller만 조작 변인입니다.
+실험에서는 다음 두 최적화를 Default와 CALM 양쪽에 똑같이 적용합니다.
+해당 최적화는 <optimizing 논문 추가> 을 참고하였다. 
+<!--따라서 OPT 1, 2는 통제 변인이고 CALM controller만 조작 변인입니다.-->
 
 - **OPT 1:** `maxMessageSize=1472 B`
 - **OPT 2:** periodic HEARTBEAT 주기를 publish period의 절반으로 설정
-- Piggyback HEARTBEAT는 기존처럼 활성화
+<!-- - Piggyback HEARTBEAT는 기존처럼 활성화-->
 
-링크 용량을 미리 입력하는 정적 link-capacity optimization은 사용하지 않습니다.
+<!--링크 용량을 미리 입력하는 정적 link-capacity optimization은 사용하지 않습니다.-->
 
 ## Notation
 
@@ -93,7 +94,7 @@ OPT 1, 2는 통제 변인이고 CALM controller만 조작 변인입니다.
 
 ## 1. Budget B Control
 
-`B`는 한 번의 pacing opportunity에서 release할 수 있는 **repair와 held-new의
+`B`는 한 번의 pacing에서 release할 수 있는 **재전송과 새전송의
 합계 byte budget**입니다. CALM 4.1은 Writer의 ReaderProxy별로 다음 값을
 관측합니다.
 
@@ -107,8 +108,10 @@ OPT 1, 2는 통제 변인이고 CALM controller만 조작 변인입니다.
 - sample별 retransmission count와 failed-repair count
 - pending repair, scheduled repair, held-new byte
 
-`F`는 NACKFRAG submessage가 단순히 여러 번 도착했다고 증가하지 않습니다.
+<!--`F`는 NACKFRAG submessage가 단순히 여러 번 도착했다고 증가하지 않습니다.
 실제로 보낸 repair 영역과 이후 valid feedback의 요청 영역이 겹칠 때만 실패한
+repair round로 인정합니다.-->
+`F`는 실제로 보낸 재전송이 실패하여 NACK을 받은 경우에만 실패한
 repair round로 인정합니다.
 
 ### Activation and return
@@ -137,7 +140,7 @@ $$
 I_n = \mathrm{ACK\ repair\ progress} \land \Delta U_n < 0
 $$
 
-현재 timeout reference는 측정한 feedback time의 4배이며, 초기 feedback 측정값이
+현재 timeout reference는 측정한 feedback time의 4배이며($$ T_{to,n} = 4\widehat{T}_{FB,n} $$), 초기 feedback 측정값이
 없으면 HEARTBEAT period를 사용합니다.
 
 $$
