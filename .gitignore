@@ -12,6 +12,6 @@ results/
 *.db3
 *.mcap
 *.pdf
-document/backup/
-document/Fast-DDS-*/
-document/cyclonedds-*/
+S1/document/backup/
+S1/document/Fast-DDS-*/
+S1/document/cyclonedds-*/

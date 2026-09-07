@@ -50,7 +50,7 @@ ros2 run calm_pretest calm_automation \
 복사된 ROS 2 패키지는 다음 위치에 저장되어 있다.
 
 ```text
-experiments/S1/calm_pretest/
+S1/calm_pretest/
 ```
 
 주요 파일은 다음과 같다.
@@ -61,6 +61,8 @@ experiments/S1/calm_pretest/
 - `CMakeLists.txt`: 빌드 설정
 - `package.xml`: ROS 2 패키지 메타데이터
 - `README.md`: 패키지 단위 사용 설명
+
+S1 단계에서 작성한 연구 제안과 배경 문서는 `S1/document/`에 보관한다.
 
 ## 현재 구현 상태
 
