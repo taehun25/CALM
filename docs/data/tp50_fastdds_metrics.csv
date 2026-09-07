@@ -1,0 +1,7 @@
+metric,label,unit,better,default,calm,calm_version
+receive_ratio,Receive ratio,%,higher,51.55,100.0,CALM 4.0
+mean_delay,Mean delay,s,lower,155.201,73.883,CALM 4.0
+p95_delay,p95 delay,s,lower,245.546,125.070,CALM 4.0
+max_u,Maximum U,MiB,lower,234.79,29.40,CALM 4.0
+retransmit_p95,Retransmit count p95,count,lower,20,3,CALM 4.0
+ack_stall_max,ACK stall max,s,lower,83.338,4.530,CALM 4.0

@@ -7,6 +7,8 @@ install/
 log/
 results/
 *.csv
+!docs/data/
+!docs/data/*.csv
 *.log
 *.bag
 *.db3
