@@ -7,8 +7,6 @@ Optimized Default DDS and CALM.
 - `config/`: Fast DDS and Cyclone DDS transport profiles
 - `scripts/automation.py`: Wi-Fi/SSH experiment automation
 - `scripts/ddsopt_loopback_automation.py`: reproducible loopback/netem A/B runs
-- `scripts/plot_calm_results.py`: regenerate README bar and line charts
-- `requirements-plot.txt`: plotting-only Python dependency
 - `scripts/calm_*`: parameter sweeps and validation utilities
 
 The package name remains `calm_pretest_yw`. Place this directory at

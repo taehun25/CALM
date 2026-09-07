@@ -281,16 +281,10 @@ Fast DDS에서 OPT 1, 2를 동일하게 적용한 Default와 CALM 4.0의 대표 
 
 ![Cross-condition p95 delay line chart](docs/assets/cross_condition_p95_line.png)
 
-그래프는 다음 명령으로 다시 만들 수 있습니다.
-
-```bash
-python3 -m pip install -r experiments/requirements-plot.txt
-python3 experiments/scripts/plot_calm_results.py
-```
-
-입력값과 출처 범위는 [`docs/data/`](docs/data/)에 있습니다. 특히 Fast DDS 대표
-Default는 timeout 전에 받은 1,031개 sample만으로 p95가 계산됐으므로 완전 수신
-분포와 동등한 통계로 과해석하면 안 됩니다.
+그래프 생성 코드와 원본 실험 CSV는 연구자의 로컬 결과 디렉터리에서 관리하며 이
+저장소에는 포함하지 않습니다. 특히 Fast DDS 대표 Default는 timeout 전에 받은
+1,031개 sample만으로 p95가 계산됐으므로 완전 수신 분포와 동등한 통계로
+과해석하면 안 됩니다.
 
 CALM 4.1은 같은 명목 조건의 별도 fixed-50 ms 실행에서 2,000/2,000 수신,
 p95 127.20 s, maximum $U$ 34.45 MiB를 기록했습니다. 이는 CALM 4.0 paired
@@ -327,7 +321,6 @@ CALM/
 experiments/             # ROS 2 package, profiles and automation scripts
 docs/                    # current implementation and experiment reports
   assets/                # generated bar and line charts
-  data/                  # curated values used by plotting scripts
 S1/
   calm_pretest/          # initial baseline snapshot
   document/              # S1-era proposal and legacy research documents

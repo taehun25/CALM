@@ -1,4 +1,0 @@
-label,middleware,calm_version,repeats,default_p95_s,calm_p95_s,receive_result,scope
-Fast 1MiB x 20Hz PER10,Fast DDS 2.6.11,CALM 4.0 fixed Tp=50ms,1,245.546,125.070,Default 1031/2000; CALM 2000/2000,persistent loss; Default timeout makes its p95 receive-complete biased
-Cyclone 512KiB x 20Hz A20,Cyclone DDS 0.10.5,CALM 3 prototype,2,0.0559,0.0321,both 600/600,transient loss repeated comparison
-Cyclone 1MiB x 30Hz A10,Cyclone DDS 0.10.5,CALM 3 prototype,2,0.4059,0.2749,both 480/480,transient loss repeated comparison
