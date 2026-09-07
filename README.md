@@ -1,15 +1,15 @@
 # CALM: Congestion-Aware Loss-Recovery Modulation for ROS 2 DDS
 
 CALM은 ROS 2 DDS의 `RELIABLE` QoS에서 대량 repair가 한꺼번에 release되어
-추가 손실, 반복 NACK, 긴 tail delay를 만드는 문제를 줄이기 위한 Writer-side
-재전송 제어 연구입니다. RTPS wire format이나 Reader를 바꾸지 않고 Writer가
+추가 손실, 반복 NACK, 긴 delay를 만드는 positive feedback 문제를 줄이기 위한 
+재전송 제어 연구입니다. RTPS format이나 Reader를 바꾸지 않고 Writer가
 DDS layer에서 관측할 수 있는 정보만 사용합니다.
 
 > **현재 상태:** Fast DDS 2.6.11에 CALM 4.1의 진입 조건, budget 제어,
 > oldest-repair-first scheduling, held-new, pacing 실행 경로가 구현되어 있습니다.
 > 고정 `T_p=50 ms`의 CALM 4.0 paired 실험에서는 Optimized Default보다 크게
 > 개선됐고 CALM 4.1의 별도 실행에서도 같은 방향이 확인됐지만,
-> workload와 링크가 달라져도 적용할 수 있는 `T_p` 결정식은 아직 연구 중입니다.
+> workload와 링크가 달라져도 적용할 수 있는 `T_p` 결정식은 **아직 연구 중**입니다.
 > Cyclone DDS 0.10.5 포팅은 CALM 3 계열 기능 prototype입니다.
 
 ## Background
@@ -17,15 +17,15 @@ DDS layer에서 관측할 수 있는 정보만 사용합니다.
 Reliable RTPS의 기본 손실 복구 흐름은 다음과 같습니다.
 
 ```text
-Writer                                      Reader
-  | --- DATA / DATA_FRAG --------------------> |
+Writer                                       Reader
+  | --- DATA / DATA_FRAG -------------------->  |
   | --- HEARTBEAT ----------------------------> |
   | <--- ACKNACK / NACKFRAG ------------------- |
-  | --- requested repair --------------------> |
+  | --- requested repair -------------------->  |
   | <--- cumulative ACK progress -------------- |
 ```
 
-무선 손실이나 단절 복구 중 Reader가 요청한 repair가 큰 burst로 release되면 링크와
+무선 손실이나 단절 복구 중 Reader가 요청한 repair가 큰 burst로 release되면 그 자체가 대역폭을 점유하여 링크와
 송신 큐가 다시 혼잡해질 수 있습니다. 그러면 repair 자체가 재손실되고 같은 영역이
 다시 NACK되어, WHC backlog와 지연이 함께 증가합니다. 완전한 storm에 이르지
 않더라도 실제 수신 Hz와 실시간성이 크게 저하될 수 있습니다.
