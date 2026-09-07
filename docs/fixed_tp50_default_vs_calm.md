@@ -1,4 +1,4 @@
-# Fixed Tp=50 ms: Optimized Default vs CALM 4.0
+# Fixed Tp=50 ms: Optimized Default vs CALM 4.0 and CALM 4.1
 
 ## Question
 
@@ -69,6 +69,38 @@ This combination supports the intended mechanism:
 
 The run demonstrates that the CALM control direction is useful even before a
 general `T_p` equation is finalized.
+
+## CALM 4.1 same-condition run
+
+An additional CALM 4.1 run used the same nominal workload and fixed
+`T_p=50 ms`. It was executed separately from the Default run, so this is a
+cross-run comparison rather than a randomized or interleaved paired A/B trial.
+
+| Metric | Optimized Default | CALM 4.1 | Relative result |
+| --- | ---: | ---: | ---: |
+| Published | 2000 | 2000 | equal |
+| Received | 1031 | 2000 | 969 more samples |
+| Receive ratio | 51.55% | 100% | full recovery |
+| Elapsed | 301.32 s, timeout | 233.17 s | CALM 4.1 completed |
+| Mean delay | 155.201 s | 77.731 s | 49.9% reduction |
+| p95 delay | 245.546 s | 127.203 s | 48.2% reduction |
+| Maximum delay | 246.636 s | 131.371 s | 46.7% reduction |
+| Maximum `U` | 234.79 MiB | 34.45 MiB | 85.3% reduction |
+| Retransmit count p50/p95/max | 8/20/37 | 2/4/9 | lower throughout |
+| Failed-repair count p50/p95/max | 7/19/36 | 1/3/9 | lower throughout |
+| Oldest repair age max | 83.338 s | 22.350 s | 73.2% reduction |
+| ACK-progress stall max | 83.338 s | 5.182 s | 93.8% reduction |
+
+Local source results:
+
+- Default: `DDSOPT_loopback_fastdds_calm4_p1024_h20_per10_ab_20260821_223536`
+- CALM 4.1: `DDSOPT_loopback_fastdds_calm41_tpsweep_p1024_h20_per10_tp50_20260907_003036`
+
+This CALM 4.1 run used fixed pacing, not the experimental entry-ACK pacing
+formula. It confirms the same qualitative direction as CALM 4.0, but its
+cross-run percentages should not be presented as stronger evidence than the
+CALM 4.0 paired result. A new interleaved Default/CALM 4.1 repeated experiment
+is still required for a direct CALM 4.1 treatment-effect claim.
 
 ## Scope
 

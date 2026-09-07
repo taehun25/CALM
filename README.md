@@ -264,13 +264,26 @@ Fast DDS에서 OPT 1, 2를 동일하게 적용한 Default와 CALM 4.0의 대표 
 1회 A/B이므로 모든 Wi-Fi에서 같은 개선률을 보장하지는 않습니다.--> 자세한 분석은
 [`docs/fixed_tp50_default_vs_calm.md`](docs/fixed_tp50_default_vs_calm.md)에 있습니다.
 
-<!-- Fast DDS 대표 Default는 timeout 전에 받은 1,031개 sample만으로 p95가
-계산됐으므로 완전 수신 분포와 동등한 통계로 과해석하면 안 됩니다.
+### CALM 4.1 same-condition result
 
-CALM 4.1은 같은 명목 조건의 별도 fixed-50 ms 실행에서 2,000/2,000 수신,
-p95 127.20 s, maximum $U$ 34.45 MiB를 기록했습니다. 이는 CALM 4.0 paired
-결과와 개선 방향은 같지만, 다른 시각에 수행한 실행이므로 위 paired 개선율 계산에는
-포함하지 않았습니다.-->
+CALM 4.1도 같은 명목 조건에서 fixed `T_p=50 ms`로 실험했습니다. 다만 아래
+Default와 CALM 4.1은 서로 다른 시각에 수행한 실행이므로 paired A/B가 아닌
+cross-run 비교입니다.
+
+| Metric | Optimized Default | CALM 4.1 | Change |
+| --- | ---: | ---: | ---: |
+| Received | 1031/2000 | 2000/2000 | complete recovery |
+| Timeout | yes | no, 233.17 s | timeout removed |
+| Mean end-to-end delay | 155.20 s | 77.73 s | 49.9% lower |
+| p95 end-to-end delay | 245.55 s | 127.20 s | 48.2% lower |
+| Maximum $U$ | 234.79 MiB | 34.45 MiB | 85.3% lower |
+| Retransmit count p95 | 20 | 4 | 80.0% lower |
+| Failed-repair count p95 | 19 | 3 | 84.2% lower |
+| ACK-progress stall max | 83.34 s | 5.18 s | 93.8% lower |
+
+CALM 4.1은 완전 수신과 적체 감소 방향을 재현했지만, 정확한 개선율을 확정하려면
+동일한 실험 batch에서 Default/CALM 4.1을 교대로 반복하는 paired 검증이 필요합니다.
+이 실행은 `entry_ack` 계산식이 아니라 fixed `T_p=50 ms`를 사용했습니다.
 
 ## Implementation
 
