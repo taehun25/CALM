@@ -140,12 +140,12 @@ $$
 I_n = \mathrm{ACK\ repair\ progress} \land \Delta U_n < 0
 $$
 
-현재 timeout reference는 측정한 feedback time의 4배이며($$ T_{to,n} = 4\widehat{T}_{FB,n} $$), 초기 feedback 측정값이
+현재 timeout reference는 측정한 feedback time의 4배이며($ T_{to,n} = 4\widehat{T}_{FB,n} $), 초기 feedback 측정값이
 없으면 HEARTBEAT period를 사용합니다.
 
-$$
+<!-- $$
 T_{to,n} = 4\widehat{T}_{FB,n}
-$$
+$$ -->
 
 Budget은 다음 AIMD 계열 식으로 feedback round마다 갱신됩니다.
 
@@ -167,7 +167,7 @@ $$
 실제 ACK repair progress와 backlog 감소가 확인되면 sample 규모에 비례해
 천천히 증가합니다.
 
-### Repair-first scheduling
+<!-- ### Repair-first scheduling
 
 각 pacing opportunity에서 pending repair $R$과 held-new $H$에 budget을 다음
 순서로 배분합니다.
@@ -184,9 +184,9 @@ $$
    잠시 보류합니다.
 4. 남은 repair는 다음 HEARTBEAT를 기다리지 않고 pacing opportunity마다 처리합니다.
 5. 이전 batch가 DDS 송신 경로에 남아 있으면 다음 tick의 추가 등록을 건너뛰어
-   여러 batch가 다시 하나의 burst로 합쳐지는 것을 막습니다.
+   여러 batch가 다시 하나의 burst로 합쳐지는 것을 막습니다. -->
 
-## 2. Pacing Period Tp
+## 2. Pacing Period Tp 구현 중
 
 $T_p$는 CALM이 한 번의 budget `B`를 release한 뒤 다음 release opportunity까지
 기다리는 시간입니다. CALM episode 진입 시 한 번 정하고 episode 동안 고정하는
@@ -232,14 +232,15 @@ $\widehat{\mu}_{entry}$가 sample-level cumulative ACK goodput을 과소평가�
 $B/T_p$라도 queue non-overlap, 빈 budget, fragment 처리 비용과 sample
 completion 때문에 같은 실제 service rate가 보장되지 않음을 보여줍니다.
 
-## Representative Result
+## 3. Representative Result
 
 Fast DDS에서 OPT 1, 2를 동일하게 적용한 Default와 CALM 4.0의 대표 paired A/B
-결과입니다. 현재 핵심 구현인 CALM 4.1 이전의 controller 결과이므로 버전을
-구분해서 해석해야 합니다.
+결과.
+<!-- 현재 핵심 구현인 CALM 4.1 이전의 controller 결과이므로 버전을
+구분해서 해석해야 합니다.-->
 
 - Workload: `1 MiB x 20 Hz`, 2,000 samples
-- Loopback: 180 Mbps, `3 +/- 1 ms`, persistent PER 10%
+- Loopback: 180 Mbps, <!--`3 +/- 1 ms`,--> persistent PER 10%
 - OPT 1: `1472 B`, OPT 2 HEARTBEAT: `25 ms`
 - CALM 4.0: fixed `T_p=50 ms`, `K_d=K_i=0.25`
 - Timeout: 300 s
@@ -257,17 +258,17 @@ Fast DDS에서 OPT 1, 2를 동일하게 적용한 Default와 CALM 4.0의 대표 
 | ACK-progress stall max | 83.34 s | 4.53 s | 94.6% lower |
 
 이는 고정 `T_p=50 ms`에서 budget pacing이 큰 repair burst와 WHC peak를 줄이고
-완전 수신을 회복한 결과입니다. 하나의 loopback/netem 조건에서 얻은 대표
-1회 A/B이므로 모든 Wi-Fi에서 같은 개선률을 보장하지는 않습니다. 자세한 분석은
+완전 수신을 회복한 결과입니다. <!--하나의 loopback/netem 조건에서 얻은 대표
+1회 A/B이므로 모든 Wi-Fi에서 같은 개선률을 보장하지는 않습니다.--> 자세한 분석은
 [`docs/fixed_tp50_default_vs_calm.md`](docs/fixed_tp50_default_vs_calm.md)에 있습니다.
 
-Fast DDS 대표 Default는 timeout 전에 받은 1,031개 sample만으로 p95가
+<!-- Fast DDS 대표 Default는 timeout 전에 받은 1,031개 sample만으로 p95가
 계산됐으므로 완전 수신 분포와 동등한 통계로 과해석하면 안 됩니다.
 
 CALM 4.1은 같은 명목 조건의 별도 fixed-50 ms 실행에서 2,000/2,000 수신,
 p95 127.20 s, maximum $U$ 34.45 MiB를 기록했습니다. 이는 CALM 4.0 paired
 결과와 개선 방향은 같지만, 다른 시각에 수행한 실행이므로 위 paired 개선율 계산에는
-포함하지 않았습니다.
+포함하지 않았습니다.-->
 
 ## Implementation
 
@@ -332,7 +333,7 @@ git apply /path/to/CALM/CALM/cyclonedds-0.10.5/CALM.patch
 `colcon build --symlink-install`로 빌드합니다. 실험 package는 `experiments/`를
 workspace의 `src/calm_pretest_yw`로 배치해 함께 빌드할 수 있습니다.
 
-### Loopback example
+<!-- ### Loopback example
 
 ```bash
 source /opt/ros/humble/setup.bash
@@ -366,9 +367,9 @@ python3 ~/ros2_ws/src/calm_pretest_yw/scripts/ddsopt_loopback_automation.py \
 ```bash
 sudo tc qdisc del dev lo root 2>/dev/null || true
 tc qdisc show dev lo
-```
+```-->
 
-## CSV Metrics
+<!-- ## CSV Metrics
 
 `summary.csv`에서 우선 확인할 항목은 다음과 같습니다.
 
@@ -381,7 +382,7 @@ tc qdisc show dev lo
 - `calm_active_rows`, `calm_budget_min/max_bytes`
 
 Event-level `fastdds_storm_*.csv`에는 sample sequence, repair 상태, ACK progress,
-failed repair, $\Delta U$, budget과 pacing period가 기록됩니다.
+failed repair, $\Delta U$, budget과 pacing period가 기록됩니다. -->
 
 ## Limitations and Next Work
 
@@ -394,6 +395,6 @@ failed repair, $\Delta U$, budget과 pacing period가 기록됩니다.
 CALM은 현재 연구용 prototype입니다. 실시간 또는 안전 필수 시스템에 적용하기
 전에 workload별 검증이 필요합니다.
 
-## Target Venue
+## Target Conference
 
 - ACM/IEEE International Conference on Cyber-Physical Systems (ICCPS)
