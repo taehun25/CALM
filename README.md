@@ -27,8 +27,8 @@ Writer                                       Reader
 
 무선 손실이나 단절 복구 중 Reader가 요청한 repair가 큰 burst로 release되면 그 자체가 대역폭을 점유하여 링크와
 송신 큐가 다시 혼잡해질 수 있습니다. 그러면 repair 자체가 재손실되고 같은 영역이
-다시 NACK되어, WHC backlog와 지연이 함께 증가합니다. 완전한 storm에 이르지
-않더라도 실제 수신 Hz와 실시간성이 크게 저하될 수 있습니다.
+다시 NACK되어, WHC backlog와 지연이 함께 증가합니다. 
+<!--완전한 storm에 이르지 않더라도 실제 수신 Hz와 실시간성이 크게 저하될 수 있습니다.-->
 
 ### Optimized baseline
 
