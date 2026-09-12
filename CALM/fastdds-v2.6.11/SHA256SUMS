@@ -1,0 +1,11 @@
+978103a9794f94dab0f867de7ff87fcb8db04b8e464736f6b2464307a28ee6fc  ./CALM.patch
+bc897912acb580271f53ab3a43d6c79857668e7accd8cbe75751dcb9514c7fca  ./MANIFEST.md
+cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30  ./UPSTREAM_LICENSE.txt
+f43df009d010bed3cadbd5fd5166228ae7829ddd2e33dc095f3d1fd0e8ab5dd3  ./overlay/include/fastdds/rtps/writer/ChangeForReader.h
+16676119f96bcf645045e4fb24e3020fe50cd9fb3e9e2c597ed6f172f39bb9d8  ./overlay/include/fastdds/rtps/writer/ReaderProxy.h
+fff4a2484028f6b63fad3eaf4c2d940f71b72c23f024f020e1157e4bb017363c  ./overlay/include/fastdds/rtps/writer/StatefulWriter.h
+398c1d4cfc9dd01835e5e2a8ae1314c196efa4d87b38bacc2041d9fd32732654  ./overlay/src/cpp/rtps/writer/RTPSWriter.cpp
+51bc24780f05159d4b8f2f7dd242e25129479250fb3ad4c9de105200c0d6f4eb  ./overlay/src/cpp/rtps/writer/ReaderProxy.cpp
+4e885f770c5a50d942e75b7ba45962fe58aec4eef01e363ee07311d15dfe1dc8  ./overlay/src/cpp/rtps/writer/StatefulWriter.cpp
+751c7f88d97a57d5488222d2702bf03b17cae6f969f0ca1fe27b91c31b00ddb5  ./overlay/test/mock/rtps/StatefulWriter/fastdds/rtps/writer/StatefulWriter.h
+ec5f7797f002182439dee79d8278b2bd499de91da1ff05bd5e41cbc30e85068b  ./overlay/test/unittest/rtps/writer/ReaderProxyTests.cpp

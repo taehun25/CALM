@@ -642,9 +642,8 @@ private:
         bool last_service_window_repair_progress = false;
         uint64_t ack_increase_credit_bytes = 0;
         double ack_goodput_headroom = 1.05;
-        // CALM 4 uses an episode-fixed configured period, CALM 4.1 may derive
-        // it from pre-entry ACK goodput, and CALM 4.2 fixes it to the Writer's
-        // periodic heartbeat interval. None follows later B changes.
+        // CALM 4 uses an episode-fixed pacing period. CALM 4.1 may derive it
+        // once from pre-entry ACK goodput; neither mode follows later B changes.
         double pacing_floor_ms = 50.0;
         double entry_service_rate_mbps = 0.0;
         double entry_pacing_eta = 1.10;
@@ -730,9 +729,6 @@ private:
         uint32_t feedback_round_start_oldest_failed_count = 0;
         int64_t last_feedback_delta_u_bytes = 0;
         uint32_t last_feedback_delta_oldest_failed = 0;
-        bool calm42_normal_return_ready = false;
-        uint32_t calm43_entry_condition_rounds = 0;
-        uint32_t calm43_recovery_condition_rounds = 0;
         double last_feedback_failure_fraction = 0.0;
         double last_feedback_progress_fraction = 0.0;
         double calm4_decrease_gain = 0.25;
@@ -758,8 +754,7 @@ private:
     void calm_note_repair_attempt();
 
     void calm_observe_repeated_feedback(
-            double failure_severity,
-            uint64_t rerequested_repair_bytes);
+            double failure_severity);
 
     void calm_note_feedback_rtt(
             const std::chrono::steady_clock::time_point& now);
@@ -854,8 +849,7 @@ private:
             uint64_t unique_repair_bytes,
             bool repeated,
             bool failed_repair_feedback,
-            double failure_severity,
-            uint64_t rerequested_repair_bytes);
+            double failure_severity);
 
     void calm_log_observer_snapshot(
             const char* phase,

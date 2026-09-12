@@ -426,11 +426,6 @@ public:
         return calm_last_failed_repair_severity_;
     }
 
-    uint64_t calm_last_failed_repair_rerequested_bytes() const
-    {
-        return calm_last_failed_repair_rerequested_bytes_;
-    }
-
     bool calm_retry_ready(
             const std::chrono::steady_clock::time_point& now,
             double cooldown_ms) const
@@ -479,8 +474,6 @@ public:
         bool overlaps_latest_repair = whole_sample_request;
         bool feedback_made_progress = false;
         double failure_severity = 1.0;
-        uint64_t failed_rerequested_bytes = whole_sample_request && change_ != nullptr ?
-                change_->serializedPayload.length : 0;
         if (!whole_sample_request && fragments != nullptr)
         {
             FragmentNumberSet_t::bitmap_type bitmap;
@@ -522,7 +515,6 @@ public:
                 }
             }
             overlaps_latest_repair = rerequested_bytes > 0;
-            failed_rerequested_bytes = rerequested_bytes;
             if (retransmitted_scope_bytes > 0)
             {
                 feedback_made_progress = rerequested_bytes < retransmitted_scope_bytes;
@@ -544,7 +536,6 @@ public:
 
         ++calm_failed_repair_count_;
         calm_last_failed_repair_severity_ = failure_severity;
-        calm_last_failed_repair_rerequested_bytes_ = failed_rerequested_bytes;
         calm_failed_feedback_recorded_ = true;
         calm_awaiting_repair_feedback_ = false;
         calm_next_repair_round_pending_ = true;
@@ -665,7 +656,6 @@ private:
 
     //! Fraction of bytes sent in the feedback scope that were requested again.
     double calm_last_failed_repair_severity_ = 1.0;
-    uint64_t calm_last_failed_repair_rerequested_bytes_ = 0;
 
     //! True after a repair epoch until matching ACK/NACK feedback is observed.
     bool calm_awaiting_repair_feedback_ = false;

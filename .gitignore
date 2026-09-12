@@ -6,13 +6,15 @@ build/
 install/
 log/
 results/
+!docs/assets/results/
+!docs/assets/results/*.png
 *.csv
 *.log
 *.bag
 *.db3
 *.mcap
 *.pdf
-!docs/Optimizing_ROS_2_Communication_for_Wireless_Robotic_Systems.pdf
+!docs/paper/Optimizing_ROS_2_Communication_for_Wireless_Robotic_Systems.pdf
 S1/document/backup/
 S1/document/Fast-DDS-*/
 S1/document/cyclonedds-*/

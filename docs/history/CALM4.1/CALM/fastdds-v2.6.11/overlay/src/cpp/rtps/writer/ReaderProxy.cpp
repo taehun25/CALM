@@ -414,38 +414,9 @@ bool calm41_controller()
     return 0 == std::strcmp(calm_controller(), "calm41");
 }
 
-bool calm42_controller()
-{
-    return 0 == std::strcmp(calm_controller(), "calm42");
-}
-
-bool calm43_controller()
-{
-    return 0 == std::strcmp(calm_controller(), "calm43");
-}
-
-bool calm42_or_later_controller()
-{
-    return calm42_controller() || calm43_controller();
-}
-
-bool calm41_or_later_controller()
-{
-    return calm41_controller() || calm42_or_later_controller();
-}
-
 bool calm4_family_controller()
 {
-    return calm4_controller() || calm41_or_later_controller();
-}
-
-const char* calm4_event_name(
-        const char* calm4_name,
-        const char* calm41_name,
-        const char* calm42_name)
-{
-    return calm42_or_later_controller() ? calm42_name :
-           (calm41_controller() ? calm41_name : calm4_name);
+    return calm4_controller() || calm41_controller();
 }
 
 bool calm41_entry_ack_pacing_enabled()
@@ -907,7 +878,6 @@ bool ReaderProxy::requested_changes_set(
     bool isSomeoneWasSetRequested = false;
     bool observed_nack = false;
     bool observed_repeated_nack = false;
-    uint64_t feedback_rerequested_repair_bytes = 0;
     const double feedback_guard_ms = calm_feedback_guard_ms();
 
     if (SequenceNumber_t::unknown() != min_seq_in_history)
@@ -929,18 +899,12 @@ bool ReaderProxy::requested_changes_set(
                                         chit->calm_retransmit_count() > 0;
                                 chit->calm_mark_whole_repair_pending();
                                 const uint64_t current_bytes = chit->calm_repair_pending_bytes();
-                                if (failed_repair_feedback && calm43_controller())
-                                {
-                                    feedback_rerequested_repair_bytes +=
-                                            chit->calm_last_failed_repair_rerequested_bytes();
-                                }
                                 calm_record_nack(
                                     current_bytes,
                                     current_bytes > previous_bytes ? current_bytes - previous_bytes : 0,
                                     repeated,
-                                    failed_repair_feedback && !calm43_controller(),
-                                    chit->calm_last_failed_repair_severity(),
-                                    chit->calm_last_failed_repair_rerequested_bytes());
+                                    failed_repair_feedback,
+                                    chit->calm_last_failed_repair_severity());
                                 observed_nack = true;
                                 observed_repeated_nack |= repeated;
                             }
@@ -971,18 +935,12 @@ bool ReaderProxy::requested_changes_set(
                                         chit->calm_retransmit_count() > 0;
                                 chit->calm_mark_whole_repair_pending();
                                 const uint64_t current_bytes = chit->calm_repair_pending_bytes();
-                                if (failed_repair_feedback && calm43_controller())
-                                {
-                                    feedback_rerequested_repair_bytes +=
-                                            chit->calm_last_failed_repair_rerequested_bytes();
-                                }
                                 calm_record_nack(
                                     current_bytes,
                                     current_bytes > previous_bytes ? current_bytes - previous_bytes : 0,
                                     repeated,
-                                    failed_repair_feedback && !calm43_controller(),
-                                    chit->calm_last_failed_repair_severity(),
-                                    chit->calm_last_failed_repair_rerequested_bytes());
+                                    failed_repair_feedback,
+                                    chit->calm_last_failed_repair_severity());
                                 observed_nack = true;
                                 observed_repeated_nack |= repeated;
                             }
@@ -999,19 +957,12 @@ bool ReaderProxy::requested_changes_set(
                             const uint64_t previous_bytes = chit->calm_repair_pending_bytes();
                             chit->calm_note_repeated_nack();
                             const uint64_t current_bytes = chit->calm_repair_pending_bytes();
-                            const bool failed_repair_feedback =
-                                    chit->calm_retransmitted_since(calm_.repair_round_start_time);
-                            if (failed_repair_feedback && calm43_controller())
-                            {
-                                feedback_rerequested_repair_bytes += current_bytes;
-                            }
                             calm_record_nack(
                                 current_bytes,
                                 current_bytes > previous_bytes ? current_bytes - previous_bytes : 0,
                                 true,
-                                failed_repair_feedback && !calm43_controller(),
-                                1.0,
-                                current_bytes);
+                                chit->calm_retransmitted_since(calm_.repair_round_start_time),
+                                1.0);
                             observed_nack = true;
                             observed_repeated_nack = true;
                         }
@@ -1021,21 +972,6 @@ bool ReaderProxy::requested_changes_set(
                         gap_builder.add(sit);
                     }
                 });
-    }
-
-    if (feedback_rerequested_repair_bytes > 0)
-    {
-        const bool controlled_before_feedback = calm_controls_repair();
-        calm_observe_repeated_feedback(0.0, feedback_rerequested_repair_bytes);
-        if (!controlled_before_feedback && calm_controls_repair())
-        {
-            // The ACKNACK was parsed while NORMAL, but this complete feedback
-            // activated CALM. Keep the REQUESTED debt for paced release and
-            // suppress the ordinary immediate response from this call.
-            calm_note_request_ready();
-            calm_hold_unsent_new_changes();
-            isSomeoneWasSetRequested = false;
-        }
     }
 
     if (observed_nack)
@@ -1753,7 +1689,7 @@ uint64_t ReaderProxy::calm_update_budget()
     {
         calm_.pacing_floor_ms = calm_env_double(
             "FASTDDS_CALM_PACING_MS", calm_.pacing_floor_ms, 0.1, 10000.0);
-        if (!calm42_or_later_controller() && !calm_.entry_ack_pacing_applied)
+        if (!calm_.entry_ack_pacing_applied)
         {
             calm_.last_pacing_period_ms = calm_.pacing_floor_ms;
         }
@@ -2309,10 +2245,7 @@ void ReaderProxy::calm_enter_active()
         calm_.entry_ack_pacing_applied =
                 calm_.entry_ack_pacing_enabled && calm_.entry_service_rate_mbps > 0.0;
         calm_.active_rate_reference_mbps = calm_.entry_service_rate_mbps;
-        const double heartbeat_period_ms = calm_heartbeat_period_ms();
-        calm_.last_pacing_period_ms = calm42_or_later_controller() ?
-                (heartbeat_period_ms > 0.0 ? heartbeat_period_ms : calm_.pacing_floor_ms) :
-                calm41_entry_pacing_period_ms(
+        calm_.last_pacing_period_ms = calm41_entry_pacing_period_ms(
             calm_.congestion_window_bytes,
             calm_.entry_service_rate_mbps,
             calm_.entry_pacing_eta,
@@ -2632,7 +2565,7 @@ void ReaderProxy::calm_note_shared_release(
     calm_.last_release_was_repair = repair_bytes > 0;
     if (calm4_family_controller())
     {
-        if (!calm42_or_later_controller() && !calm_.entry_ack_pacing_applied)
+        if (!calm_.entry_ack_pacing_applied)
         {
             calm_.last_pacing_period_ms = calm_env_double(
                 "FASTDDS_CALM_PACING_MS", calm_.pacing_floor_ms, 0.1, 10000.0);
@@ -2825,7 +2758,6 @@ void ReaderProxy::calm_note_repair_attempt()
         calm_.feedback_round_released_bytes = 0;
         calm_.feedback_round_start_oldest_failed_count =
                 calm_oldest_failed_repair_count();
-        calm_.calm42_normal_return_ready = false;
     }
     // One T_NR response can release several Changes. Measure the feedback age
     // from the first actual repair in that response so congestion feedback for
@@ -2844,8 +2776,7 @@ void ReaderProxy::calm_note_repair_attempt()
 }
 
 void ReaderProxy::calm_observe_repeated_feedback(
-        double failure_severity,
-        uint64_t rerequested_repair_bytes)
+        double failure_severity)
 {
     if (!calm_enabled())
     {
@@ -2870,19 +2801,9 @@ void ReaderProxy::calm_observe_repeated_feedback(
     // Additional NACK_FRAG submessages in the same response cannot count again.
     calm_note_feedback_rtt(now);
     calm_.repair_round_armed = false;
-    calm_.calm42_normal_return_ready = false;
-    if (calm43_controller())
-    {
-        // A failed repair-feedback round breaks a recovery streak.
-        calm_.calm43_recovery_condition_rounds = 0;
-    }
     ++calm_.failed_feedback_rounds;
-    calm_.last_failure_severity = calm43_controller() ?
-            std::min(
-        1.0,
-        static_cast<double>(rerequested_repair_bytes) /
-        static_cast<double>(std::max<uint64_t>(1, calm_.feedback_round_released_bytes))) :
-            std::max(0.0, std::min(1.0, failure_severity));
+    calm_.last_failure_severity = std::max(
+        0.0, std::min(1.0, failure_severity));
 
     if (calm4_family_controller())
     {
@@ -2906,60 +2827,18 @@ void ReaderProxy::calm_observe_repeated_feedback(
                     now - calm_.repair_round_start_time).count() :
                 std::chrono::duration<double, std::milli>(
                     now - calm_.last_ack_time).count();
-        const uint32_t entry_f_threshold = static_cast<uint32_t>(calm_env_uint64(
-                    "FASTDDS_CALM4_ENTRY_F_THRESHOLD", 1, 1,
-                    (std::numeric_limits<uint32_t>::max)()));
-        const char* entry_f_mode = std::getenv("FASTDDS_CALM4_ENTRY_F_MODE");
-        const bool use_absolute_entry_f = entry_f_mode != nullptr &&
-                0 == std::strcmp(entry_f_mode, "absolute_f");
-        const double feedback_timeout_ms = calm41_or_later_controller() ?
-                calm41_feedback_timeout_ms() : calm_ack_stall_threshold_ms();
-        const bool stalled = ack_progress_age_ms >= feedback_timeout_ms &&
-                (calm41_or_later_controller() || calm_.last_failure_severity >= 1.0);
-        const bool calm42_pressure = delta_u > 0 || stalled;
-        const bool calm42_failure_advanced = delta_oldest_failed >= 1;
-        const uint64_t average_sample_bytes = std::max<uint64_t>(
-            1, calm_average_sample_bytes());
-        const bool calm43_entry_condition = current_u >= average_sample_bytes &&
-                delta_u >= 0 && calm42_failure_advanced;
-        const bool entry_failure_confirmed = calm42_controller() && !use_absolute_entry_f ?
-                calm42_failure_advanced :
-                current_oldest_failed >= entry_f_threshold;
-        const bool entry_condition = entry_failure_confirmed &&
-                (!calm42_controller() || calm42_pressure);
-        bool activated_retry_controller = false;
-        if (calm43_controller() && !calm_controls_repair())
-        {
-            calm_.calm43_entry_condition_rounds = calm43_entry_condition ?
-                    calm_.calm43_entry_condition_rounds + 1 : 0;
-            if (calm_.calm43_entry_condition_rounds >= 2)
-            {
-                calm_enter_active();
-                calm_.calm43_entry_condition_rounds = 0;
-                activated_retry_controller = true;
-            }
-            else if (calm43_entry_condition)
-            {
-                storm_log_snapshot("calm43_entry_confirm_1", current_u);
-            }
-        }
-        else if (calm41_or_later_controller() && !calm_controls_repair() &&
-                entry_condition)
+        bool activated_calm41 = false;
+        if (calm41_controller() && !calm_controls_repair() && current_oldest_failed >= 1)
         {
             calm_enter_active();
-            activated_retry_controller = true;
+            activated_calm41 = true;
         }
-        // CALM 4.2 uses the same delta-F condition for NORMAL -> ACTIVE and
-        // multiplicative decrease while ACTIVE. absolute_f is retained only
-        // for reproducing the earlier entry-threshold experiment.
-        const bool decrease = calm43_controller() ?
-                (calm_controls_repair() && calm42_failure_advanced &&
-                (delta_u >= 0 || stalled)) :
-                (calm42_controller() ?
-                (calm_controls_repair() && calm42_failure_advanced && calm42_pressure) :
-                (delta_oldest_failed >= 1 &&
-                (delta_u >= 0 || stalled) &&
-                (!calm41_or_later_controller() || calm_controls_repair())));
+        const double feedback_timeout_ms = calm41_controller() ?
+                calm41_feedback_timeout_ms() : calm_ack_stall_threshold_ms();
+        const bool stalled = ack_progress_age_ms >= feedback_timeout_ms &&
+                (calm41_controller() || calm_.last_failure_severity >= 1.0);
+        const bool decrease = delta_oldest_failed >= 1 &&
+                (delta_u >= 0 || stalled);
 
         calm_.last_feedback_delta_u_bytes = delta_u;
         calm_.last_feedback_delta_oldest_failed = delta_oldest_failed;
@@ -2982,27 +2861,17 @@ void ReaderProxy::calm_observe_repeated_feedback(
                 calm_requested_bytes(), calm_.congestion_window_bytes);
             calm_.ack_increase_credit_bytes = 0;
             storm_log_snapshot(
-                calm43_controller() ? "calm43_decrease" :
-                calm4_event_name("calm4_decrease", "calm41_decrease", "calm42_decrease"),
+                calm41_controller() ? "calm41_decrease" : "calm4_decrease",
                 calm_.congestion_window_bytes);
         }
-        else if (activated_retry_controller)
+        else if (activated_calm41)
         {
-            storm_log_snapshot(
-                calm43_controller() ? "calm43_activate" :
-                calm4_event_name("calm4_activate", "calm41_activate", "calm42_activate"),
-                current_u);
-        }
-        else if (calm42_controller() && !calm_controls_repair() &&
-                entry_failure_confirmed && !calm42_pressure)
-        {
-            storm_log_snapshot("calm42_wait_entry_pressure", current_u);
+            storm_log_snapshot("calm41_activate", current_u);
         }
         else
         {
             storm_log_snapshot(
-                calm43_controller() ? "calm43_hold_feedback" : calm4_event_name(
-                    "calm4_hold_feedback", "calm41_hold_feedback", "calm42_hold_feedback"),
+                calm41_controller() ? "calm41_hold_feedback" : "calm4_hold_feedback",
                 current_u);
         }
 
@@ -3243,21 +3112,9 @@ bool ReaderProxy::calm_active_window_has_slot() const
 
 void ReaderProxy::calm_reset_control_if_recovered()
 {
-    const uint64_t current_u = calm_backlog_size();
-    const bool calm42_normal_return =
-            calm42_or_later_controller() &&
-            calm_.control_state == CalmControlState::ACTIVE &&
-            calm_.calm42_normal_return_ready;
-    if (current_u != 0 && !calm42_normal_return)
+    if (calm_backlog_size() != 0)
     {
         return;
-    }
-
-    if (calm42_normal_return)
-    {
-        storm_log_snapshot(
-            calm43_controller() ? "calm43_normal_return_g2" : "calm42_normal_return_g",
-            current_u);
     }
 
     const uint64_t previous_rho = calm_.rho_prev;
@@ -3274,12 +3131,10 @@ void ReaderProxy::calm_reset_control_if_recovered()
                            << calm_.path_rate_mbps << ',' << calm_.acked_rate_mbps << ','
                            << "NORMAL,0,0," << calm_.initial_budget_bytes << '\n';
 
-        const char* return_reason = calm42_normal_return ?
-                "normal_return_g" : "recovered";
         calm_budget_csv() << timestamp << ',' << reader << ','
-                          << calm_.control_epoch << ',' << return_reason << ",0,0,0,0,"
+                          << calm_.control_epoch << ",recovered,0,0,0,0,"
                           << -static_cast<double>(previous_rho)
-                          << ',' << return_reason << ','
+                          << ",recovered,"
                           << calm_.initial_repair_rate_mbps / calm_.max_repair_rate_mbps
                           << ',' << previous_rho << ','
                           << calm_.decrease_gamma << ',' << calm_.increase_alpha << ','
@@ -3342,9 +3197,6 @@ void ReaderProxy::calm_reset_control_if_recovered()
     calm_.feedback_round_start_oldest_failed_count = 0;
     calm_.last_feedback_delta_u_bytes = 0;
     calm_.last_feedback_delta_oldest_failed = 0;
-    calm_.calm42_normal_return_ready = false;
-    calm_.calm43_entry_condition_rounds = 0;
-    calm_.calm43_recovery_condition_rounds = 0;
     calm_.last_feedback_failure_fraction = 0.0;
     calm_.last_feedback_progress_fraction = 0.0;
     calm_.calm41_feedback_timeout_ms = 0.0;
@@ -3424,8 +3276,7 @@ void ReaderProxy::calm_record_nack(
         uint64_t unique_repair_bytes,
         bool repeated,
         bool failed_repair_feedback,
-        double failure_severity,
-        uint64_t rerequested_repair_bytes)
+        double failure_severity)
 {
     if (!calm_tracking_enabled())
     {
@@ -3441,7 +3292,7 @@ void ReaderProxy::calm_record_nack(
         calm_.observer_repeated_nack_bytes_total += nack_bytes;
         if (failed_repair_feedback)
         {
-            calm_observe_repeated_feedback(failure_severity, rerequested_repair_bytes);
+            calm_observe_repeated_feedback(failure_severity);
         }
     }
 }
@@ -3800,52 +3651,14 @@ void ReaderProxy::calm_note_ack(
             static_cast<double>(recovered_repair_bytes) /
             static_cast<double>(reference_bytes));
 
-        if (calm43_controller() &&
-                calm_.control_state == CalmControlState::NORMAL)
-        {
-            // C_n must hold in consecutive valid feedback rounds. A repair
-            // ACK between failures proves that the sequence was interrupted.
-            calm_.calm43_entry_condition_rounds = 0;
-        }
-
         calm_.last_feedback_delta_u_bytes = delta_u;
         calm_.last_feedback_delta_oldest_failed = 0;
         calm_.last_feedback_failure_fraction = 1.0 - progress_fraction;
         calm_.last_feedback_progress_fraction = progress_fraction;
-        // A repair ACK closes a valid feedback round with delta-F-old == 0.
-        // CALM 4.2 uses one G confirmation; CALM 4.3 requires two. U == 0
-        // remains an immediate terminal return because no further repair
-        // feedback can arrive to provide a second confirmation.
-        const uint64_t average_sample_bytes = std::max<uint64_t>(
-            1, calm_average_sample_bytes());
-        const bool calm43_recovery_condition =
-                calm43_controller() &&
-                calm_.control_state == CalmControlState::ACTIVE &&
-                current_u <= average_sample_bytes &&
-                delta_u < 0;
-        if (calm43_controller())
+        if (calm_.control_state == CalmControlState::ACTIVE && delta_u < 0)
         {
-            calm_.calm43_recovery_condition_rounds = calm43_recovery_condition ?
-                    calm_.calm43_recovery_condition_rounds + 1 : 0;
-            calm_.calm42_normal_return_ready =
-                    calm_.calm43_recovery_condition_rounds >= 2;
-            if (calm43_recovery_condition && !calm_.calm42_normal_return_ready)
-            {
-                storm_log_snapshot("calm43_recovery_confirm_1", current_u);
-            }
-        }
-        else
-        {
-            calm_.calm42_normal_return_ready =
-                    calm42_controller() &&
-                    calm_.control_state == CalmControlState::ACTIVE &&
-                    current_u <= average_sample_bytes &&
-                    delta_u < 0;
-        }
-        if (calm_.control_state == CalmControlState::ACTIVE &&
-                delta_u < 0 &&
-                !calm_.calm42_normal_return_ready)
-        {
+            const uint64_t average_sample_bytes = std::max<uint64_t>(
+                1, calm_average_sample_bytes());
             const long double increase = std::ceil(
                 static_cast<long double>(calm_.calm4_increase_gain) *
                 static_cast<long double>(average_sample_bytes) * progress_fraction);
@@ -3857,15 +3670,13 @@ void ReaderProxy::calm_note_ack(
                     calm_.max_batch_bytes - calm_.congestion_window_bytes < increase_bytes ?
                     calm_.max_batch_bytes : calm_.congestion_window_bytes + increase_bytes;
             storm_log_snapshot(
-                calm43_controller() ? "calm43_increase" :
-                calm4_event_name("calm4_increase", "calm41_increase", "calm42_increase"),
+                calm41_controller() ? "calm41_increase" : "calm4_increase",
                 calm_.congestion_window_bytes);
         }
-        else if (!calm_.calm42_normal_return_ready)
+        else
         {
             storm_log_snapshot(
-                calm43_controller() ? "calm43_hold_ack" :
-                calm4_event_name("calm4_hold_ack", "calm41_hold_ack", "calm42_hold_ack"),
+                calm41_controller() ? "calm41_hold_ack" : "calm4_hold_ack",
                 current_u);
         }
         calm_.budget_bytes = std::min(
@@ -4254,8 +4065,7 @@ bool ReaderProxy::requested_fragment_set(
                     frag_set,
                     feedback_guard_ms,
                     calm_env_flag_enabled(
-                        "FASTDDS_CALM_FEEDBACK_BYTE_PROGRESS", calm4_family_controller()) &&
-                    !calm43_controller());
+                        "FASTDDS_CALM_FEEDBACK_BYTE_PROGRESS", calm4_family_controller()));
         const bool repeated = changeIter->calm_nack_count() > 0 ||
                 changeIter->calm_retransmit_count() > 0;
         const uint64_t nack_bytes = calm_fragment_set_bytes(*changeIter, frag_set);
@@ -4266,8 +4076,7 @@ bool ReaderProxy::requested_fragment_set(
             current_bytes > previous_bytes ? current_bytes - previous_bytes : 0,
             repeated,
             failed_repair_feedback,
-            changeIter->calm_last_failed_repair_severity(),
-            changeIter->calm_last_failed_repair_rerequested_bytes());
+            changeIter->calm_last_failed_repair_severity());
         calm_log_observer_snapshot(
             repeated ? "nackfrag_repeated" : "nackfrag", 0);
         storm_log_snapshot(

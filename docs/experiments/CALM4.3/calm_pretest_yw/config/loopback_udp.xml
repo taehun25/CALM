@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+    <profiles>
+        <transport_descriptors>
+            <transport_descriptor>
+                <transport_id>calm_loopback_udp</transport_id>
+                <type>UDPv4</type>
+                <sendBufferSize>212992</sendBufferSize>
+                <receiveBufferSize>212992</receiveBufferSize>
+                <non_blocking_send>true</non_blocking_send>
+                <maxMessageSize>1472</maxMessageSize>
+                <interfaceWhiteList>
+                    <address>127.0.0.1</address>
+                </interfaceWhiteList>
+            </transport_descriptor>
+        </transport_descriptors>
+
+        <participant profile_name="calm_loopback_participant" is_default_profile="true">
+            <rtps>
+                <useBuiltinTransports>false</useBuiltinTransports>
+                <userTransports>
+                    <transport_id>calm_loopback_udp</transport_id>
+                </userTransports>
+            </rtps>
+        </participant>
+
+        <publisher profile_name="calm_loopback_writer" is_default_profile="true">
+            <qos>
+                <data_sharing>
+                    <kind>OFF</kind>
+                </data_sharing>
+            </qos>
+            <historyMemoryPolicy>DYNAMIC</historyMemoryPolicy>
+        </publisher>
+
+        <subscriber profile_name="calm_loopback_reader" is_default_profile="true">
+            <qos>
+                <data_sharing>
+                    <kind>OFF</kind>
+                </data_sharing>
+            </qos>
+            <historyMemoryPolicy>DYNAMIC</historyMemoryPolicy>
+        </subscriber>
+    </profiles>
+</dds>

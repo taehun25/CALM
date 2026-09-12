@@ -102,12 +102,6 @@ public:
         return reader_data_filter_;
     }
 
-    void times(
-            const WriterTimes& value)
-    {
-        m_times = value;
-    }
-
 private:
 
     friend class ReaderProxy;
