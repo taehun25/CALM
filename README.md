@@ -236,11 +236,9 @@ docs/
 
 - Venue: Montreal, Canada
 - Expected submission deadline: October 15, 2026
-- Basis of estimate: the NOMS 2026 submission deadline was October 13, 2025
+- Past submission date: October 13, 2025(NOMS 2026)
 
-The 2027 deadline is an internal estimate until the official call for papers is published.
-
-## License
+<!--## License
 
 CALM의 Fast DDS 파생 파일에는 upstream Fast DDS 라이선스가 그대로 적용됩니다.
-연구 코드와 문서의 재사용 시 원 프로젝트와 본 저장소를 함께 인용해 주십시오.
+연구 코드와 문서의 재사용 시 원 프로젝트와 본 저장소를 함께 인용해 주십시오.-->
