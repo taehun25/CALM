@@ -85,10 +85,10 @@ I_n = \mathrm{CALM\_ACTIVE}
       \land (\Delta U_n < 0)
 $$
 
-```math
+$$
 p_n = \operatorname{clip}\left(
 \frac{R^{reNACK}_n}{\max(R^{released}_n,1)},0,1\right)
-
+$$
 
 $$
 q_n = \operatorname{clip}\left(
