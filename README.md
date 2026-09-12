@@ -85,16 +85,21 @@ I_n = \mathrm{CALM\_ACTIVE}
       \land (\Delta U_n < 0)
 $$
 
-$$
-p_n = \operatorname{clip}\left(
-\frac{R^{reNACK}_n}{\max(R^{released}_n,1)},0,1\right)
-$$
+```math
+p_n = \mathrm{clip}\left(
+\frac{R^{\mathrm{reNACK}}_n}
+{\max\left(R^{\mathrm{released}}_n,1\right)},
+0,1
+\right)
+```
 
-$$
-q_n = \operatorname{clip}\left(
-\frac{R^{ACK}_n}{\max(R^{released}_n,1)},0,1\right)
-$$
-
+```math
+q_n = \mathrm{clip}\left(
+\frac{R^{\mathrm{ACK}}_n}
+{\max\left(R^{\mathrm{released}}_n,1\right)},
+0,1
+\right)
+```
 $$
 B_{n+1}=
 \begin{cases}
